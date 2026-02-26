@@ -20,13 +20,13 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         // ===== MINI CARDS STATS =====
-        $activeCampaigns = Campaign::whereIn('status', ['objective_in_progress', 'objective_completed', 'evaluation_in_progress'])->count();
+        $activeCampaigns = Campaign::whereIn('status', ['objective_in_progress', 'objective_completed', 'midterm_in_progress', 'midterm_completed', 'evaluation_in_progress'])->count();
         $totalCampaigns = Campaign::count();
         $totalUsers = User::where('is_active', true)->count();
 
         // Mes objectifs (campagne active)
         $myActiveCampaign = UserCampaign::where('user_uuid', $user->uuid)
-            ->whereHas('campaign', fn($q) => $q->whereIn('status', ['objective_in_progress', 'objective_completed', 'evaluation_in_progress', 'evaluation_completed']))
+            ->whereHas('campaign', fn($q) => $q->whereIn('status', ['objective_in_progress', 'objective_completed', 'midterm_in_progress', 'midterm_completed', 'evaluation_in_progress', 'evaluation_completed']))
             ->with('campaign')
             ->latest()
             ->first();
@@ -79,6 +79,8 @@ class DashboardController extends Controller
                 'evals_validated' => $evalsValidated,
                 'objective_starts_at' => $currentCampaign->objective_starts_at?->format('d/m/Y'),
                 'objective_stops_at' => $currentCampaign->objective_stops_at?->format('d/m/Y'),
+                'midterm_starts_at' => $currentCampaign->midterm_starts_at?->format('d/m/Y'),
+                'midterm_stops_at' => $currentCampaign->midterm_stops_at?->format('d/m/Y'),
                 'evaluation_starts_at' => $currentCampaign->evaluation_starts_at?->format('d/m/Y'),
                 'evaluation_stops_at' => $currentCampaign->evaluation_stops_at?->format('d/m/Y'),
             ];

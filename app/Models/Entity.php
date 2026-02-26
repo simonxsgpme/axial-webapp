@@ -15,7 +15,9 @@ class Entity extends Model
 
     protected $fillable = [
         'name',
+        'acronym',
         'category',
+        'parent_uuid',
     ];
 
     public function uniqueIds(): array
@@ -31,5 +33,40 @@ class Entity extends Model
     public function users()
     {
         return $this->hasMany(User::class, 'entity_uuid', 'uuid');
+    }
+
+    public function parent()
+    {
+        return $this->belongsTo(Entity::class, 'parent_uuid', 'uuid');
+    }
+
+    public function children()
+    {
+        return $this->hasMany(Entity::class, 'parent_uuid', 'uuid');
+    }
+
+    public function allChildren()
+    {
+        return $this->children()->with('allChildren');
+    }
+
+    public function getFullPathAttribute(): string
+    {
+        $path = [$this->name];
+        $parent = $this->parent;
+        while ($parent) {
+            array_unshift($path, $parent->name);
+            $parent = $parent->parent;
+        }
+        return implode(' > ', $path);
+    }
+
+    public function getAllDescendantUuids(): array
+    {
+        $uuids = [$this->uuid];
+        foreach ($this->children as $child) {
+            $uuids = array_merge($uuids, $child->getAllDescendantUuids());
+        }
+        return $uuids;
     }
 }

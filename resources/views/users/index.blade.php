@@ -8,9 +8,14 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">Liste des Utilisateurs</h5>
-                <a href="{{ route('users.create') }}" class="btn btn-primary waves-effect waves-light">
-                    <i class="fi fi-rr-plus me-1"></i> Ajouter un utilisateur
-                </a>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-success waves-effect waves-light" data-bs-toggle="modal" data-bs-target="#importModal">
+                        <i class="fi fi-rr-file-import me-1"></i> Importer Excel
+                    </button>
+                    <a href="{{ route('users.create') }}" class="btn btn-primary waves-effect waves-light">
+                        <i class="fi fi-rr-plus me-1"></i> Ajouter un utilisateur
+                    </a>
+                </div>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
@@ -85,10 +90,72 @@
         </div>
     </div>
 </div>
+<!-- Modal Import Excel -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="importForm" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importModalLabel"><i class="fi fi-rr-file-import me-1"></i> Importer des utilisateurs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 mb-3">
+                        <small><i class="fi fi-rr-info me-1"></i> Le fichier doit contenir les colonnes : <strong>Nom, Prenom, Email</strong> (obligatoires), Telephone, Poste, Sigle_Entite (optionnelles). Format Excel (.xlsx) ou CSV (séparateur: point-virgule).</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">Fichier Excel ou CSV <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" id="importFile" name="file" accept=".csv,.txt,.xlsx,.xls" required>
+                    </div>
+                    <div class="text-center">
+                        <a href="{{ route('users.import.template') }}" class="btn btn-sm btn-outline-primary waves-effect">
+                            <i class="fi fi-rr-download me-1"></i> Télécharger le modèle Excel
+                        </a>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary waves-effect" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-success waves-effect waves-light">
+                        <i class="fi fi-rr-upload me-1"></i> Importer
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
+    $('#importForm').on('submit', function(e) {
+        e.preventDefault();
+        var formData = new FormData(this);
+        $.ajax({
+            url: '{{ route("users.import") }}',
+            type: 'POST',
+            data: formData,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            cache: false,
+            contentType: false,
+            processData: false,
+            beforeSend: function() { loader(); },
+            success: function(data) {
+                loader('hide');
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                    sendSuccess(data.message, data.urlback || 'back');
+                } else {
+                    SendError(data.message);
+                }
+            },
+            error: function(data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+            }
+        });
+    });
+
     function deleteUser(uuid) {
         Swal.fire({
             icon: 'warning',

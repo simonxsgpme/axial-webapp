@@ -19,7 +19,10 @@ class UserCampaign extends Model
         'supervisor_uuid',
         'objective_status',
         'evaluation_status',
+        'midterm_file',
         'rating',
+        'supervisor_comment',
+        'employee_comment',
     ];
 
     public function uniqueIds(): array

@@ -70,38 +70,56 @@
             </div>
             <div class="col-md-6">
                 <div class="row g-3">
-                    <!-- Phase Objectifs -->
+                    <!-- Phase 1: Fixation des Objectifs -->
                     <div class="col-12">
                         <div class="card border-start border-primary border-3">
-                            <div class="card-body">
-                                <h6 class="fw-semibold mb-3"><i class="fi fi-rr-bullseye me-1 text-primary"></i> Phase Objectifs</h6>
+                            <div class="card-body py-2">
+                                <h6 class="fw-semibold mb-2"><i class="fi fi-rr-bullseye me-1 text-primary"></i> 1. Fixation des Objectifs
+                                    @if(in_array($campaign->status, ['objective_in_progress']))
+                                    <span class="badge bg-primary-subtle text-primary ms-1">En cours</span>
+                                    @elseif(!in_array($campaign->status, ['draft']))
+                                    <span class="badge bg-success-subtle text-success ms-1"><i class="fi fi-rr-check"></i></span>
+                                    @endif
+                                </h6>
                                 <div class="row">
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Début</small>
-                                        <span class="fw-semibold">{{ $campaign->objective_starts_at ? $campaign->objective_starts_at->format('d/m/Y') : 'Non planifié' }}</span>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Fin</small>
-                                        <span class="fw-semibold">{{ $campaign->objective_stops_at ? $campaign->objective_stops_at->format('d/m/Y') : 'Non planifié' }}</span>
-                                    </div>
+                                    <div class="col-6"><small class="text-muted d-block">Début</small><span class="fw-semibold">{{ $campaign->objective_starts_at ? $campaign->objective_starts_at->format('d/m/Y') : 'Non planifié' }}</span></div>
+                                    <div class="col-6"><small class="text-muted d-block">Fin</small><span class="fw-semibold">{{ $campaign->objective_stops_at ? $campaign->objective_stops_at->format('d/m/Y') : 'Non planifié' }}</span></div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <!-- Phase Évaluation -->
+                    <!-- Phase 2: Évaluation Mi-parcours -->
+                    <div class="col-12">
+                        <div class="card border-start border-info border-3">
+                            <div class="card-body py-2">
+                                <h6 class="fw-semibold mb-2"><i class="fi fi-rr-refresh me-1 text-info"></i> 2. Évaluation Mi-parcours
+                                    @if(in_array($campaign->status, ['midterm_in_progress']))
+                                    <span class="badge bg-info-subtle text-info ms-1">En cours</span>
+                                    @elseif(in_array($campaign->status, ['midterm_completed', 'evaluation_in_progress', 'evaluation_completed', 'archived']))
+                                    <span class="badge bg-success-subtle text-success ms-1"><i class="fi fi-rr-check"></i></span>
+                                    @endif
+                                </h6>
+                                <div class="row">
+                                    <div class="col-6"><small class="text-muted d-block">Début</small><span class="fw-semibold">{{ $campaign->midterm_starts_at ? $campaign->midterm_starts_at->format('d/m/Y') : 'Non planifié' }}</span></div>
+                                    <div class="col-6"><small class="text-muted d-block">Fin</small><span class="fw-semibold">{{ $campaign->midterm_stops_at ? $campaign->midterm_stops_at->format('d/m/Y') : 'Non planifié' }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Phase 3: Évaluation Finale -->
                     <div class="col-12">
                         <div class="card border-start border-warning border-3">
-                            <div class="card-body">
-                                <h6 class="fw-semibold mb-3"><i class="fi fi-rr-chart-histogram me-1 text-warning"></i> Phase Évaluation</h6>
+                            <div class="card-body py-2">
+                                <h6 class="fw-semibold mb-2"><i class="fi fi-rr-chart-histogram me-1 text-warning"></i> 3. Évaluation Finale
+                                    @if(in_array($campaign->status, ['evaluation_in_progress']))
+                                    <span class="badge bg-warning-subtle text-warning ms-1">En cours</span>
+                                    @elseif(in_array($campaign->status, ['evaluation_completed', 'archived']))
+                                    <span class="badge bg-success-subtle text-success ms-1"><i class="fi fi-rr-check"></i></span>
+                                    @endif
+                                </h6>
                                 <div class="row">
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Début</small>
-                                        <span class="fw-semibold">{{ $campaign->evaluation_starts_at ? $campaign->evaluation_starts_at->format('d/m/Y') : 'Non planifié' }}</span>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted d-block">Fin</small>
-                                        <span class="fw-semibold">{{ $campaign->evaluation_stops_at ? $campaign->evaluation_stops_at->format('d/m/Y') : 'Non planifié' }}</span>
-                                    </div>
+                                    <div class="col-6"><small class="text-muted d-block">Début</small><span class="fw-semibold">{{ $campaign->evaluation_starts_at ? $campaign->evaluation_starts_at->format('d/m/Y') : 'Non planifié' }}</span></div>
+                                    <div class="col-6"><small class="text-muted d-block">Fin</small><span class="fw-semibold">{{ $campaign->evaluation_stops_at ? $campaign->evaluation_stops_at->format('d/m/Y') : 'Non planifié' }}</span></div>
                                 </div>
                             </div>
                         </div>
@@ -128,13 +146,11 @@
                             <tr>
                                 <th>#</th>
                                 <th>Utilisateur</th>
-                                {{-- <th>Entité</th> --}}
                                 <th>Supérieur évaluateur</th>
                                 <th>Objectifs</th>
                                 <th>Évaluation</th>
-                                @if(in_array($campaign->status, ['draft', 'objective_in_progress']))
+                                <th>Mi-parcours</th>
                                 <th class="text-end">Actions</th>
-                                @endif
                             </tr>
                         </thead>
                         <tbody>
@@ -152,13 +168,6 @@
                                         </div>
                                     </div>
                                 </td>
-                                {{-- <td>
-                                    @if($uc->user->entity)
-                                        <span class="badge bg-info-subtle text-info">{{ $uc->user->entity->name }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td> --}}
                                 <td>
                                     @if($uc->supervisor)
                                         <span>{{ $uc->supervisor->full_name }}</span>
@@ -168,13 +177,65 @@
                                 </td>
                                 <td><span class="badge bg-{{ $uc->objective_status_color }}-subtle text-{{ $uc->objective_status_color }}">{{ $uc->objective_status_label }}</span></td>
                                 <td><span class="badge bg-{{ $uc->evaluation_status_color }}-subtle text-{{ $uc->evaluation_status_color }}">{{ $uc->evaluation_status_label }}</span></td>
-                                @if(in_array($campaign->status, ['draft', 'objective_in_progress']))
-                                <td class="text-end">
-                                    <button type="button" class="btn btn-sm btn-icon btn-outline-danger rounded-circle waves-effect waves-light" onclick="removeParticipant('{{ $uc->uuid }}')" data-bs-toggle="tooltip" title="Retirer">
-                                        <i class="fi fi-rr-trash"></i>
-                                    </button>
+                                <td>
+                                    @if($uc->midterm_file)
+                                        <span class="badge bg-success-subtle text-success"><i class="fi fi-rr-check me-1"></i>Importé</span>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
                                 </td>
-                                @endif
+                                <td class="text-end">
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-icon btn-outline-secondary rounded-circle waves-effect" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i class="fi fi-rr-menu-dots-vertical"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ route('campaigns.participants.objectives', [$campaign->uuid, $uc->uuid]) }}">
+                                                    <i class="fi fi-rr-bullseye me-2"></i> Compléter les objectifs
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ route('campaigns.participants.pdf-objectives', [$campaign->uuid, $uc->uuid]) }}" target="_blank">
+                                                    <i class="fi fi-rr-file-pdf me-2"></i> Fiche des objectifs (PDF)
+                                                </a>
+                                            </li>
+                                            @if(in_array($campaign->status, ['objective_in_progress', 'midterm_in_progress', 'evaluation_in_progress']))
+                                            <li>
+                                                <a class="dropdown-item" href="javascript:void(0);" onclick="skipPhase('{{ $uc->uuid }}')">
+                                                    <i class="fi fi-rr-forward me-2"></i> Passer la phase active
+                                                </a>
+                                            </li>
+                                            @endif
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ route('campaigns.participants.midterm-report', [$campaign->uuid, $uc->uuid]) }}" target="_blank">
+                                                    <i class="fi fi-rr-document me-2"></i> Fiche mi-parcours (Word)
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="javascript:void(0);" onclick="openUploadMidterm('{{ $uc->uuid }}')">
+                                                    <i class="fi fi-rr-upload me-2"></i> Importer fiche mi-parcours
+                                                </a>
+                                            </li>
+                                            @if($uc->midterm_file)
+                                            <li>
+                                                <a class="dropdown-item" href="{{ route('campaigns.participants.download-midterm', [$campaign->uuid, $uc->uuid]) }}">
+                                                    <i class="fi fi-rr-download me-2"></i> Télécharger fiche mi-parcours
+                                                </a>
+                                            </li>
+                                            @endif
+                                            @if(in_array($campaign->status, ['draft', 'objective_in_progress']))
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <a class="dropdown-item text-danger" href="javascript:void(0);" onclick="removeParticipant('{{ $uc->uuid }}')">
+                                                    <i class="fi fi-rr-trash me-2"></i> Retirer le participant
+                                                </a>
+                                            </li>
+                                            @endif
+                                        </ul>
+                                    </div>
+                                </td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -284,7 +345,18 @@
                             <input type="date" class="form-control" id="editObjectiveStopsAt" name="objective_stops_at" value="{{ $campaign->objective_stops_at?->format('Y-m-d') }}">
                         </div>
                     </div>
-                    <h6 class="fw-semibold mb-3"><i class="fi fi-rr-chart-histogram me-1"></i> Phase Évaluation</h6>
+                    <h6 class="fw-semibold mb-3"><i class="fi fi-rr-refresh me-1"></i> Phase Mi-parcours</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="editMidtermStartsAt" class="form-label">Date de début</label>
+                            <input type="date" class="form-control" id="editMidtermStartsAt" name="midterm_starts_at" value="{{ $campaign->midterm_starts_at?->format('Y-m-d') }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="editMidtermStopsAt" class="form-label">Date de fin</label>
+                            <input type="date" class="form-control" id="editMidtermStopsAt" name="midterm_stops_at" value="{{ $campaign->midterm_stops_at?->format('Y-m-d') }}">
+                        </div>
+                    </div>
+                    <h6 class="fw-semibold mb-3"><i class="fi fi-rr-chart-histogram me-1"></i> Phase Évaluation Finale</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="editEvaluationStartsAt" class="form-label">Date de début</label>
@@ -300,6 +372,34 @@
                     <button type="button" class="btn btn-outline-secondary waves-effect" data-bs-dismiss="modal">Annuler</button>
                     <button type="submit" class="btn btn-primary waves-effect waves-light">
                         <i class="fi fi-rr-check me-1"></i> Mettre à jour
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Modal Import Fiche Mi-parcours -->
+<div class="modal fade" id="uploadMidtermModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="uploadMidtermForm" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fi fi-rr-upload me-1"></i> Importer fiche mi-parcours</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="uploadMidtermUcUuid" value="">
+                    <div class="mb-3">
+                        <label class="form-label">Fichier PDF <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control" name="midterm_file" accept=".pdf" required>
+                        <small class="text-muted">Format PDF uniquement. Max 10 Mo.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary waves-effect" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary waves-effect waves-light">
+                        <i class="fi fi-rr-check me-1"></i> Importer
                     </button>
                 </div>
             </form>
@@ -350,6 +450,66 @@
             }
         });
     }
+
+    function skipPhase(ucUuid) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Confirmation',
+            text: 'Voulez-vous vraiment faire passer ce participant à la phase suivante ?',
+            showDenyButton: true,
+            showCancelButton: false,
+            confirmButtonText: 'Oui, passer',
+            denyButtonText: 'Non, annuler',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: '/campaigns/{{ $campaign->uuid }}/participants/' + ucUuid + '/skip-phase',
+                    type: 'POST',
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    beforeSend: function () { loader(); },
+                    success: function (data) {
+                        loader('hide');
+                        if (data.success) { sendSuccess(data.message, 'back'); }
+                        else { SendError(data.message); }
+                    },
+                    error: function (data) {
+                        loader('hide');
+                        SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+                    }
+                });
+            }
+        });
+    }
+
+    function openUploadMidterm(ucUuid) {
+        document.getElementById('uploadMidtermUcUuid').value = ucUuid;
+        new bootstrap.Modal(document.getElementById('uploadMidtermModal')).show();
+    }
+
+    document.getElementById('uploadMidtermForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        let ucUuid = document.getElementById('uploadMidtermUcUuid').value;
+        let formData = new FormData(this);
+        loader();
+        $.ajax({
+            url: '/campaigns/{{ $campaign->uuid }}/participants/' + ucUuid + '/upload-midterm',
+            type: 'POST',
+            data: formData,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            cache: false,
+            contentType: false,
+            processData: false,
+            success: function (data) {
+                loader('hide');
+                if (data.success) { sendSuccess(data.message, 'back'); }
+                else { SendError(data.message); }
+            },
+            error: function (data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+            }
+        });
+    });
 
     function updateStatus(uuid, action, label) {
         Swal.fire({

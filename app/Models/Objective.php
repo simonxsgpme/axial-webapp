@@ -73,4 +73,9 @@ class Objective extends Model
     {
         return $this->hasMany(EvaluationComment::class, 'objective_uuid', 'uuid')->orderBy('created_at', 'asc');
     }
+
+    public function histories()
+    {
+        return $this->hasMany(ObjectiveHistory::class, 'objective_uuid', 'uuid')->orderBy('created_at', 'desc');
+    }
 }

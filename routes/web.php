@@ -87,6 +87,15 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::post('/campaigns/{campaign}/participants', [UserCampaignController::class, 'store'])->name('campaigns.participants.store');
     Route::delete('/campaigns/{campaign}/participants/{userCampaign}', [UserCampaignController::class, 'destroy'])->name('campaigns.participants.destroy');
     Route::get('/campaigns/{campaign}/results', [CampaignController::class, 'results'])->name('campaigns.results');
+    Route::get('/campaigns/{campaign}/participants/{userCampaign}/objectives', [CampaignController::class, 'editParticipantObjectives'])->name('campaigns.participants.objectives');
+    Route::post('/campaigns/{campaign}/participants/{userCampaign}/objectives', [CampaignController::class, 'storeParticipantObjective'])->name('campaigns.participants.objectives.store');
+    Route::put('/campaigns/{campaign}/participants/{userCampaign}/objectives/{objective}', [CampaignController::class, 'updateParticipantObjective'])->name('campaigns.participants.objectives.update');
+    Route::delete('/campaigns/{campaign}/participants/{userCampaign}/objectives/{objective}', [CampaignController::class, 'destroyParticipantObjective'])->name('campaigns.participants.objectives.destroy');
+    Route::get('/campaigns/{campaign}/participants/{userCampaign}/pdf-objectives', [CampaignController::class, 'pdfObjectives'])->name('campaigns.participants.pdf-objectives');
+    Route::post('/campaigns/{campaign}/participants/{userCampaign}/skip-phase', [CampaignController::class, 'skipPhase'])->name('campaigns.participants.skip-phase');
+    Route::get('/campaigns/{campaign}/participants/{userCampaign}/midterm-report', [CampaignController::class, 'midtermReport'])->name('campaigns.participants.midterm-report');
+    Route::post('/campaigns/{campaign}/participants/{userCampaign}/upload-midterm', [CampaignController::class, 'uploadMidterm'])->name('campaigns.participants.upload-midterm');
+    Route::get('/campaigns/{campaign}/participants/{userCampaign}/download-midterm', [CampaignController::class, 'downloadMidterm'])->name('campaigns.participants.download-midterm');
     Route::delete('/campaigns/{campaign}', [CampaignController::class, 'destroy'])->name('campaigns.destroy');
 
     // Objectifs (vue employé)
@@ -124,6 +133,7 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::post('/supervisor/evaluations/{userCampaign}/submit', [SupervisorEvaluationController::class, 'submitToEmployee'])->name('supervisor.evaluations.submit');
     Route::post('/supervisor/evaluations/{objective}/comments', [SupervisorEvaluationController::class, 'addComment'])->name('supervisor.evaluations.comments.store');
     Route::delete('/supervisor/evaluation-comments/{comment}', [SupervisorEvaluationController::class, 'deleteComment'])->name('supervisor.evaluations.comments.destroy');
+    Route::post('/supervisor/evaluations/{userCampaign}/global-comment', [SupervisorEvaluationController::class, 'saveGlobalComment'])->name('supervisor.evaluations.global-comment');
 
     // Utilisateurs
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
@@ -133,5 +143,7 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::put('/users/{user}/supervisor', [UserController::class, 'updateSupervisor'])->name('users.update-supervisor');
     Route::post('/users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
+    Route::post('/users/import', [UserController::class, 'importExcel'])->name('users.import');
+    Route::get('/users/import/template', [UserController::class, 'downloadTemplate'])->name('users.import.template');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 });

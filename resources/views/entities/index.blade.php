@@ -19,9 +19,10 @@
                             <tr>
                                 <th>#</th>
                                 <th>Nom</th>
+                                <th>Sigle</th>
                                 <th>Catégorie</th>
-                                <th>Utilisateurs</th>
-                                <th>Date de création</th>
+                                <th>Entité parente</th>
+                                <th>Personnels</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -30,6 +31,7 @@
                             <tr>
                                 <td>{{ $index + 1 }}</td>
                                 <td><span class="fw-semibold">{{ $entity->name }}</span></td>
+                                <td>{{ $entity->acronym ?? '-' }}</td>
                                 <td>
                                     @if($entity->category === 'direction')
                                         <span class="badge bg-primary-subtle text-primary">Direction</span>
@@ -39,10 +41,16 @@
                                         <span class="badge bg-info-subtle text-info">Département</span>
                                     @endif
                                 </td>
+                                <td>
+                                    @if($entity->parent)
+                                        <span class="badge bg-secondary-subtle text-secondary">{{ $entity->parent->name }}</span>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
                                 <td><span class="badge bg-secondary-subtle text-secondary">{{ $entity->users->count() }}</span></td>
-                                <td>{{ $entity->created_at->format('d/m/Y H:i') }}</td>
                                 <td class="text-end">
-                                    <button type="button" class="btn btn-sm btn-icon btn-outline-primary rounded-circle waves-effect waves-light" onclick="openEditModal('{{ $entity->uuid }}', '{{ $entity->name }}', '{{ $entity->category }}')" data-bs-toggle="tooltip" title="Modifier">
+                                    <button type="button" class="btn btn-sm btn-icon btn-outline-primary rounded-circle waves-effect waves-light" onclick="openEditModal('{{ $entity->uuid }}', '{{ addslashes($entity->name) }}', '{{ $entity->acronym }}', '{{ $entity->category }}', '{{ $entity->parent_uuid }}')" data-bs-toggle="tooltip" title="Modifier">
                                         <i class="fi fi-rr-pencil"></i>
                                     </button>
                                     <button type="button" class="btn btn-sm btn-icon btn-outline-danger rounded-circle waves-effect waves-light" onclick="deleteEntity('{{ $entity->uuid }}')" data-bs-toggle="tooltip" title="Supprimer">
@@ -52,7 +60,7 @@
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="6" class="text-center text-muted py-4">
+                                <td colspan="7" class="text-center text-muted py-4">
                                     <i class="fi fi-rr-building fs-3 d-block mb-2"></i>
                                     Aucune entité trouvée.
                                 </td>
@@ -78,18 +86,35 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="entityName" class="form-label">Nom de l'entité <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="entityName" name="name" placeholder="Ex: Direction Générale" required>
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="entityName" class="form-label">Nom de l'entité <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="entityName" name="name" placeholder="Ex: Direction Générale" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="entityAcronym" class="form-label">Sigle</label>
+                            <input type="text" class="form-control" id="entityAcronym" name="acronym" placeholder="Ex: DG" maxlength="20">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="entityCategory" class="form-label">Catégorie <span class="text-danger">*</span></label>
-                        <select class="form-select" id="entityCategory" name="category" required>
-                            <option value="">-- Sélectionner --</option>
-                            <option value="direction">Direction</option>
-                            <option value="service">Service</option>
-                            <option value="departement">Département</option>
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="entityCategory" class="form-label">Catégorie <span class="text-danger">*</span></label>
+                            <select class="form-select" id="entityCategory" name="category" required>
+                                <option value="">-- Sélectionner --</option>
+                                <option value="direction">Direction</option>
+                                <option value="service">Service</option>
+                                <option value="departement">Département</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="entityParent" class="form-label">Entité parente</label>
+                            <select class="form-select" id="entityParent" name="parent_uuid">
+                                <option value="">-- Aucune (racine) --</option>
+                                @foreach($entities as $e)
+                                <option value="{{ $e->uuid }}">{{ $e->name }}{{ $e->acronym ? ' ('.$e->acronym.')' : '' }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -112,16 +137,20 @@
         document.getElementById('entityForm').action = "{{ route('settings.entities.store') }}";
         document.getElementById('entityMethod').value = 'POST';
         document.getElementById('entityName').value = '';
+        document.getElementById('entityAcronym').value = '';
         document.getElementById('entityCategory').value = '';
+        document.getElementById('entityParent').value = '';
     }
 
-    function openEditModal(uuid, name, category) {
+    function openEditModal(uuid, name, acronym, category, parentUuid) {
         document.getElementById('entityModalLabel').textContent = 'Modifier l\'entité';
         document.getElementById('entitySubmitText').textContent = 'Mettre à jour';
         document.getElementById('entityForm').action = "/settings/entities/" + uuid;
         document.getElementById('entityMethod').value = 'PUT';
         document.getElementById('entityName').value = name;
+        document.getElementById('entityAcronym').value = acronym || '';
         document.getElementById('entityCategory').value = category;
+        document.getElementById('entityParent').value = parentUuid || '';
 
         var modal = new bootstrap.Modal(document.getElementById('entityModal'));
         modal.show();

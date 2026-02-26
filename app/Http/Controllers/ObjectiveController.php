@@ -6,6 +6,7 @@ use App\Models\Campaign;
 use App\Models\Objective;
 use App\Models\ObjectiveCategory;
 use App\Models\ObjectiveDecision;
+use App\Models\ObjectiveHistory;
 use App\Models\UserCampaign;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,8 +17,8 @@ class ObjectiveController extends Controller
     {
         $user = Auth::user();
 
-        // Chercher la campagne en cours (objective_in_progress ou evaluation_in_progress)
-        $campaign = Campaign::whereIn('status', ['objective_in_progress', 'evaluation_in_progress'])->first();
+        // Chercher la campagne en cours
+        $campaign = Campaign::whereIn('status', ['objective_in_progress', 'midterm_in_progress', 'midterm_completed', 'evaluation_in_progress'])->first();
 
         if (!$campaign) {
             return view('objectives.index', [
@@ -69,6 +70,7 @@ class ObjectiveController extends Controller
             'objective_category_uuid' => 'required|exists:objective_categories,uuid',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'weight' => 'nullable|integer|min:0|max:100',
         ]);
 
         // Vérifier que le user_campaign appartient à l'utilisateur connecté
@@ -76,8 +78,12 @@ class ObjectiveController extends Controller
             ->where('user_uuid', Auth::id())
             ->firstOrFail();
 
-        // Vérifier que l'employé peut encore modifier (draft ou returned)
-        if (!in_array($userCampaign->objective_status, ['draft', 'returned'])) {
+        // Vérifier que l'employé peut encore modifier (draft, returned, ou midterm)
+        $campaign = $userCampaign->campaign;
+        $canAdd = in_array($userCampaign->objective_status, ['draft', 'returned'])
+            || in_array($campaign->status, ['midterm_in_progress']);
+
+        if (!$canAdd) {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous ne pouvez plus ajouter d\'objectifs.',
@@ -89,7 +95,20 @@ class ObjectiveController extends Controller
             'objective_category_uuid' => $request->objective_category_uuid,
             'title' => $request->title,
             'description' => $request->description,
+            'weight' => $request->weight ?? 0,
         ]);
+
+        // Track history if created during midterm
+        if ($campaign->status === 'midterm_in_progress') {
+            ObjectiveHistory::create([
+                'objective_uuid' => $objective->uuid,
+                'changed_by_uuid' => Auth::id(),
+                'field' => 'created',
+                'old_value' => null,
+                'new_value' => $objective->title,
+                'phase' => 'midterm',
+            ]);
+        }
 
         $objective->load(['category', 'comments.user']);
 
@@ -140,14 +159,36 @@ class ObjectiveController extends Controller
             'objective_category_uuid' => 'required|exists:objective_categories,uuid',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'weight' => 'nullable|integer|min:0|max:100',
         ]);
+
+        // Track history if during midterm phase
+        $campaign = $userCampaign->campaign;
+        if ($campaign->status === 'midterm_in_progress') {
+            $fields = ['title', 'description', 'weight', 'objective_category_uuid'];
+            foreach ($fields as $field) {
+                $newVal = $request->$field;
+                $oldVal = $objective->$field;
+                if ($newVal != $oldVal) {
+                    ObjectiveHistory::create([
+                        'objective_uuid' => $objective->uuid,
+                        'changed_by_uuid' => Auth::id(),
+                        'field' => $field,
+                        'old_value' => (string) $oldVal,
+                        'new_value' => (string) $newVal,
+                        'phase' => 'midterm',
+                    ]);
+                }
+            }
+        }
 
         $objective->update([
             'objective_category_uuid' => $request->objective_category_uuid,
             'title' => $request->title,
             'description' => $request->description,
-            'status' => 'pending',
-            'rejection_reason' => null,
+            'weight' => $request->weight ?? $objective->weight,
+            'status' => $campaign->status === 'midterm_in_progress' ? $objective->status : 'pending',
+            'rejection_reason' => $campaign->status === 'midterm_in_progress' ? $objective->rejection_reason : null,
         ]);
 
         $objective->load(['category', 'comments.user']);
@@ -215,6 +256,15 @@ class ObjectiveController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Vous devez avoir au moins un objectif avant de soumettre.',
+            ], 422);
+        }
+
+        // Vérifier que le total des pondérations est 100%
+        $totalWeight = $userCampaign->objectives()->sum('weight');
+        if ($totalWeight !== 100) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le total des pondérations doit être égal à 100% (actuellement ' . $totalWeight . '%).',
             ], 422);
         }
 

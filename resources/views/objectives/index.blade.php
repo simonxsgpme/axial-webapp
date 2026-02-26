@@ -76,9 +76,11 @@
             </div>
         @else
             @php
-                $canEdit = in_array($userCampaign->objective_status, ['draft', 'returned']);
+                $isMidterm = in_array($phase, ['midterm_in_progress']);
+                $canEdit = in_array($userCampaign->objective_status, ['draft', 'returned']) || $isMidterm;
                 $isCompleted = $userCampaign->objective_status === 'completed';
                 $isSubmitted = $userCampaign->objective_status === 'submitted';
+                $totalWeight = $objectives->sum('weight');
                 $validatedCount = $objectives->where('status', 'validated')->count();
                 $rejectedCount = $objectives->where('status', 'rejected')->count();
                 $totalCount = $objectives->count();
@@ -104,7 +106,12 @@
             </div>
             @endif
 
-            @if($isSubmitted)
+            @if($isMidterm)
+            <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
+                <i class="fi fi-rr-time-half-past me-2"></i>
+                <div><strong>Phase mi-parcours</strong> — Vous pouvez modifier vos objectifs et ajuster les pondérations. Les modifications seront tracées dans l'historique.</div>
+            </div>
+            @elseif($isSubmitted)
             <div class="alert alert-warning d-flex align-items-center mb-3" role="alert">
                 <i class="fi fi-rr-clock me-2"></i>
                 <div>Vos objectifs sont en attente de validation par votre supérieur. Vous pouvez uniquement ajouter des commentaires.</div>
@@ -272,7 +279,7 @@
                                     <input type="hidden" id="formObjectiveUuid" value="">
                                     <input type="hidden" name="user_campaign_uuid" value="{{ $userCampaign->uuid }}">
                                     <div class="row">
-                                        <div class="col-md-8 mb-3">
+                                        <div class="col-md-5 mb-3">
                                             <label for="formTitle_input" class="form-label">Titre <span class="text-danger">*</span></label>
                                             <input type="text" class="form-control" id="formTitle_input" name="title" required>
                                         </div>
@@ -284,6 +291,11 @@
                                                 <option value="{{ $cat->uuid }}">{{ $cat->name }}</option>
                                                 @endforeach
                                             </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label for="formWeight" class="form-label">Pondération (%) <span class="text-danger">*</span></label>
+                                            <input type="number" class="form-control" id="formWeight" name="weight" min="0" max="100" value="0" required>
+                                            <small class="text-muted" id="weightHelper">Total actuel : {{ $totalWeight }}%</small>
                                         </div>
                                         <div class="col-12 mb-3">
                                             <label for="formDescription" class="form-label">Description</label>
@@ -348,6 +360,7 @@
         document.getElementById('formSubmitLabel').textContent = 'Enregistrer';
         document.getElementById('formObjectiveUuid').value = '';
         document.getElementById('objectiveForm').reset();
+        document.getElementById('formWeight').value = 0;
         if (currentCategory !== 'all') {
             document.getElementById('formCategory').value = currentCategory;
         }
@@ -375,6 +388,7 @@
                     document.getElementById('formObjectiveUuid').value = obj.uuid;
                     document.getElementById('formTitle_input').value = obj.title;
                     document.getElementById('formCategory').value = obj.objective_category_uuid;
+                    document.getElementById('formWeight').value = obj.weight || 0;
                     document.getElementById('formDescription').value = obj.description || '';
                 }
             },

@@ -37,7 +37,7 @@
                                     </li>
                                     @if($campaign->status !== 'archived')
                                     <li>
-                                        <a class="dropdown-item" href="javascript:void(0);" onclick="openEditModal('{{ $campaign->uuid }}', {{ json_encode($campaign->only(['name', 'description', 'year', 'objective_starts_at', 'objective_stops_at', 'evaluation_starts_at', 'evaluation_stops_at'])) }})">
+                                        <a class="dropdown-item" href="javascript:void(0);" onclick="openEditModal('{{ $campaign->uuid }}', {{ json_encode($campaign->only(['name', 'description', 'year', 'objective_starts_at', 'objective_stops_at', 'midterm_starts_at', 'midterm_stops_at', 'evaluation_starts_at', 'evaluation_stops_at'])) }})">
                                             <i class="fi fi-rr-pencil me-2"></i> Modifier
                                         </a>
                                     </li>
@@ -136,6 +136,17 @@
                             <input type="date" class="form-control" id="objectiveStopsAt" name="objective_stops_at">
                         </div>
                     </div>
+                    <h6 class="fw-semibold mb-3"><i class="fi fi-rr-time-half-past me-1"></i> Phase Mi-parcours</h6>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="midtermStartsAt" class="form-label">Date de début</label>
+                            <input type="date" class="form-control" id="midtermStartsAt" name="midterm_starts_at">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="midtermStopsAt" class="form-label">Date de fin</label>
+                            <input type="date" class="form-control" id="midtermStopsAt" name="midterm_stops_at">
+                        </div>
+                    </div>
                     <h6 class="fw-semibold mb-3"><i class="fi fi-rr-chart-histogram me-1"></i> Phase Évaluation</h6>
                     <div class="row">
                         <div class="col-md-6 mb-3">
@@ -172,6 +183,8 @@
         document.getElementById('campaignDescription').value = '';
         document.getElementById('objectiveStartsAt').value = '';
         document.getElementById('objectiveStopsAt').value = '';
+        document.getElementById('midtermStartsAt').value = '';
+        document.getElementById('midtermStopsAt').value = '';
         document.getElementById('evaluationStartsAt').value = '';
         document.getElementById('evaluationStopsAt').value = '';
     }
@@ -186,6 +199,8 @@
         document.getElementById('campaignDescription').value = data.description || '';
         document.getElementById('objectiveStartsAt').value = data.objective_starts_at ? data.objective_starts_at.substring(0, 10) : '';
         document.getElementById('objectiveStopsAt').value = data.objective_stops_at ? data.objective_stops_at.substring(0, 10) : '';
+        document.getElementById('midtermStartsAt').value = data.midterm_starts_at ? data.midterm_starts_at.substring(0, 10) : '';
+        document.getElementById('midtermStopsAt').value = data.midterm_stops_at ? data.midterm_stops_at.substring(0, 10) : '';
         document.getElementById('evaluationStartsAt').value = data.evaluation_starts_at ? data.evaluation_starts_at.substring(0, 10) : '';
         document.getElementById('evaluationStopsAt').value = data.evaluation_stops_at ? data.evaluation_stops_at.substring(0, 10) : '';
 

@@ -151,13 +151,18 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="card-title mb-0">
                     <i class="fi fi-rr-building me-1"></i> {{ $entityData['entity']->name }}
-                    <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $entityData['members']->count() }} membre(s)</span>
+                    @if($entityData['entity']->acronym ?? null)
+                        <small class="text-muted">({{ $entityData['entity']->acronym }})</small>
+                    @endif
+                    <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $entityData['all_members']->count() }} membre(s)</span>
                 </h6>
                 <span class="badge entity-avg-badge bg-primary-subtle text-primary">
                     Moyenne: {{ $entityData['avg_rating'] }}%
                 </span>
             </div>
             <div class="card-body p-0">
+                {{-- Membres directs de l'entité racine --}}
+                @if($entityData['members']->count() > 0)
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light">
@@ -175,7 +180,7 @@
                             @php
                                 $initials = strtoupper(substr($uc->user->first_name, 0, 1) . substr($uc->user->last_name, 0, 1));
                                 $ratingVal = $uc->rating ?? 0;
-                                $chartId = 'miniDonut_' . $eIdx . '_' . $idx;
+                                $chartId = 'miniDonut_' . $eIdx . '_d_' . $idx;
                             @endphp
                             <tr>
                                 <td class="fw-semibold text-muted">{{ $idx + 1 }}</td>
@@ -214,6 +219,71 @@
                         </tbody>
                     </table>
                 </div>
+                @endif
+
+                {{-- Sous-entités --}}
+                @foreach($entityData['sub_entities'] ?? [] as $sIdx => $subData)
+                <div class="border-top">
+                    <div class="px-3 py-2 bg-light d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold text-muted">
+                            <i class="fi fi-rr-arrow-turn-down-right me-1"></i> {{ $subData['entity']->name }}
+                            @if($subData['entity']->acronym)
+                                <small>({{ $subData['entity']->acronym }})</small>
+                            @endif
+                            <span class="badge bg-secondary-subtle text-secondary ms-1">{{ $subData['members']->count() }}</span>
+                        </span>
+                        <span class="badge entity-avg-badge bg-info-subtle text-info">
+                            Moy: {{ $subData['avg_rating'] }}%
+                        </span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <tbody>
+                                @foreach($subData['members'] as $sUcIdx => $uc)
+                                @php
+                                    $initials = strtoupper(substr($uc->user->first_name, 0, 1) . substr($uc->user->last_name, 0, 1));
+                                    $ratingVal = $uc->rating ?? 0;
+                                    $chartId = 'miniDonut_' . $eIdx . '_s' . $sIdx . '_' . $sUcIdx;
+                                @endphp
+                                <tr>
+                                    <td style="width: 50px;" class="fw-semibold text-muted">{{ $sUcIdx + 1 }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="avatar avatar-sm">
+                                                <span class="avatar-text rounded-circle bg-{{ $uc->rating_color }}-subtle text-{{ $uc->rating_color }} fw-bold">{{ $initials }}</span>
+                                            </div>
+                                            <div>
+                                                <span class="fw-semibold d-block">{{ $uc->user->full_name }}</span>
+                                                <small class="text-muted">{{ $uc->user->position ?? '' }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if($uc->supervisor)
+                                            <small>{{ $uc->supervisor->full_name }}</small>
+                                        @else
+                                            <small class="text-muted">-</small>
+                                        @endif
+                                    </td>
+                                    <td style="width: 140px;">
+                                        <div class="mini-donut-cell">
+                                            <div id="{{ $chartId }}"></div>
+                                            <span class="fw-bold">{{ $ratingVal }}%</span>
+                                        </div>
+                                    </td>
+                                    <td style="width: 120px;">
+                                        <span class="badge bg-{{ $uc->rating_color }}-subtle text-{{ $uc->rating_color }}">{{ $uc->rating_level ?? 'N/A' }}</span>
+                                    </td>
+                                    <td style="width: 120px;">
+                                        <span class="badge bg-{{ $uc->evaluation_status_color }}-subtle text-{{ $uc->evaluation_status_color }}">{{ $uc->evaluation_status_label }}</span>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                @endforeach
             </div>
         </div>
         @endforeach
@@ -276,7 +346,12 @@ document.addEventListener('DOMContentLoaded', function() {
         $miniDonutData = [];
         foreach ($entitiesWithParticipants as $eIdx => $entityData) {
             foreach ($entityData['members'] as $idx => $uc) {
-                $miniDonutData[] = ['id' => 'miniDonut_' . $eIdx . '_' . $idx, 'val' => $uc->rating ?? 0];
+                $miniDonutData[] = ['id' => 'miniDonut_' . $eIdx . '_d_' . $idx, 'val' => $uc->rating ?? 0];
+            }
+            foreach ($entityData['sub_entities'] ?? [] as $sIdx => $subData) {
+                foreach ($subData['members'] as $sUcIdx => $uc) {
+                    $miniDonutData[] = ['id' => 'miniDonut_' . $eIdx . '_s' . $sIdx . '_' . $sUcIdx, 'val' => $uc->rating ?? 0];
+                }
             }
         }
     @endphp

@@ -82,7 +82,7 @@ class SupervisorEvaluationController extends Controller
         }
 
         $request->validate([
-            'score' => 'required|numeric|min:0|max:' . $objective->weight,
+            'score' => 'required|numeric|min:0|max:100',
         ]);
 
         $objective->update([
@@ -134,7 +134,15 @@ class SupervisorEvaluationController extends Controller
 
         $this->recalculateRating($userCampaign);
 
-        $userCampaign->update(['evaluation_status' => 'submitted_to_employee']);
+        // Save global supervisor comment if provided
+        if ($request->filled('supervisor_comment')) {
+            $userCampaign->update([
+                'evaluation_status' => 'submitted_to_employee',
+                'supervisor_comment' => $request->supervisor_comment,
+            ]);
+        } else {
+            $userCampaign->update(['evaluation_status' => 'submitted_to_employee']);
+        }
 
         EvaluationDecision::create([
             'user_campaign_uuid' => $userCampaign->uuid,
@@ -195,12 +203,47 @@ class SupervisorEvaluationController extends Controller
         ]);
     }
 
+    public function saveGlobalComment(Request $request, UserCampaign $userCampaign)
+    {
+        if ($userCampaign->supervisor_uuid !== Auth::id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Vous n\'êtes pas autorisé.',
+            ], 403);
+        }
+
+        $request->validate([
+            'supervisor_comment' => 'nullable|string',
+        ]);
+
+        $userCampaign->update([
+            'supervisor_comment' => $request->supervisor_comment,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Commentaire global enregistré.',
+        ]);
+    }
+
     private function recalculateRating(UserCampaign $userCampaign): void
     {
         $objectives = $userCampaign->objectives()->whereNotNull('score')->get();
 
         if ($objectives->count() > 0) {
-            $rating = $objectives->sum('score');
+            $totalWeight = $objectives->sum('weight');
+
+            if ($totalWeight > 0) {
+                // Weighted average: sum(score * weight) / sum(weight)
+                $weightedSum = $objectives->sum(function ($obj) {
+                    return $obj->score * $obj->weight;
+                });
+                $rating = $weightedSum / $totalWeight;
+            } else {
+                // Fallback: simple average if no weights defined
+                $rating = $objectives->avg('score');
+            }
+
             $userCampaign->update(['rating' => round($rating, 2)]);
         }
     }

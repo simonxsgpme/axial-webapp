@@ -31,10 +31,15 @@ class UserCampaignController extends Controller
 
             $user = User::find($userUuid);
 
+            $supervisorUuid = null;
+            if ($user->supervisor_uuid && User::where('uuid', $user->supervisor_uuid)->exists()) {
+                $supervisorUuid = $user->supervisor_uuid;
+            }
+
             UserCampaign::create([
                 'user_uuid' => $userUuid,
                 'campaign_uuid' => $campaign->uuid,
-                'supervisor_uuid' => $user->supervisor_uuid,
+                'supervisor_uuid' => $supervisorUuid,
                 'objective_status' => 'draft',
                 'evaluation_status' => 'pending',
             ]);
