@@ -4,12 +4,7 @@
 <div class="p-4 p-sm-5 maxw-450px m-auto auth-inner" data-simplebar>
 
     <div class="text-center mb-4">
-        <div class="visible-light">
-            <img src="{{ asset('assets/images/brand/logo-light.png') }}" alt="AXIAL" style="height: 40px;">
-        </div>
-        <div class="visible-dark">
-            <img src="{{ asset('assets/images/brand/logo-dark.png') }}" alt="AXIAL" style="height: 40px;">
-        </div>
+        <img src="https://www.sgpme.ci/wp-content/uploads/2026/02/logo-150.png" width="120" alt="SGPME logo">
     </div>
 
     <div class="text-center mb-4">

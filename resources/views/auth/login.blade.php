@@ -3,8 +3,8 @@
 @section('content')
 <div class="p-4 p-sm-5 maxw-450px m-auto auth-inner" data-simplebar>
     <div class="mb-4 text-center">
-        <a href="/" aria-label="GXON logo">
-            <img class="visible-light" src="https://www.sgpme.ci/wp-content/uploads/2026/02/logo-150.png" width="120" alt="SGPME logo">
+        <a href="/" aria-label="AXIAL logo">
+            <img class="visible-light" src="https://www.sgpme.ci/wp-content/uploads/2026/02/logo-150.png" width="120" alt="AXIAL logo">
         </a>
     </div>
     <div class="text-center mb-5">
