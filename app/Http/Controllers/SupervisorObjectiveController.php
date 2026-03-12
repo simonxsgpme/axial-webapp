@@ -17,7 +17,7 @@ class SupervisorObjectiveController extends Controller
         $user = Auth::user();
 
         // Chercher la campagne en cours
-        $campaign = Campaign::whereIn('status', ['objective_in_progress', 'evaluation_in_progress'])->first();
+        $campaign = Campaign::whereIn('status', ['objective_in_progress', 'midterm_in_progress', 'evaluation_in_progress'])->first();
 
         if (!$campaign) {
             return view('supervisor.objectives', [
@@ -129,6 +129,92 @@ class SupervisorObjectiveController extends Controller
         ]);
     }
 
+    public function validateMultiple(Request $request)
+    {
+        $request->validate([
+            'objectives' => 'required|array|min:1',
+            'objectives.*.uuid' => 'required|exists:objectives,uuid',
+            'objectives.*.weight' => 'required|integer|min:0|max:100',
+        ]);
+
+        $validatedCount = 0;
+        $userCampaign = null;
+        $errors = [];
+
+        foreach ($request->objectives as $objData) {
+            $objective = Objective::findOrFail($objData['uuid']);
+            $userCampaign = $objective->userCampaign;
+
+            // Vérifier que l'utilisateur connecté est le superviseur
+            if ($userCampaign->supervisor_uuid !== Auth::id()) {
+                $errors[] = 'Vous n\'êtes pas autorisé à valider l\'objectif : ' . $objective->title;
+                continue;
+            }
+
+            // Vérifier que les objectifs sont soumis
+            if ($userCampaign->objective_status !== 'submitted') {
+                $errors[] = 'Les objectifs ne sont pas en attente de validation.';
+                continue;
+            }
+
+            // Vérifier que la somme des pondérations de la catégorie ne dépasse pas le % de la catégorie
+            $category = $objective->category;
+            $currentCategoryWeight = $userCampaign->objectives()
+                ->where('objective_category_uuid', $objective->objective_category_uuid)
+                ->where('uuid', '!=', $objective->uuid)
+                ->where('status', 'validated')
+                ->sum('weight');
+
+            if (($currentCategoryWeight + $objData['weight']) > $category->percentage) {
+                $remaining = $category->percentage - $currentCategoryWeight;
+                $errors[] = 'La pondération de "' . $objective->title . '" dépasse le restant disponible (' . $remaining . '%).';
+                continue;
+            }
+
+            // Valider l'objectif
+            $objective->update([
+                'status' => 'validated',
+                'weight' => $objData['weight'],
+            ]);
+
+            $validatedCount++;
+        }
+
+        if ($validatedCount > 0 && $userCampaign) {
+            // Vérifier si tous les objectifs sont validés
+            $allValidated = $userCampaign->objectives()->where('status', '!=', 'validated')->count() === 0;
+            if ($allValidated) {
+                $userCampaign->update(['objective_status' => 'completed']);
+
+                ObjectiveDecision::create([
+                    'user_campaign_uuid' => $userCampaign->uuid,
+                    'actor_uuid' => Auth::id(),
+                    'action' => 'completed',
+                    'comment' => 'Tous les objectifs ont été validés. Phase objectifs terminée.',
+                ]);
+            }
+
+            $message = $validatedCount . ' objectif(s) validé(s) avec succès.';
+            if (!empty($errors)) {
+                $message .= ' Certains objectifs n\'ont pas pu être validés.';
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'validated_count' => $validatedCount,
+                'all_validated' => $allValidated ?? false,
+                'errors' => $errors,
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Aucun objectif n\'a pu être validé.',
+            'errors' => $errors,
+        ], 422);
+    }
+
     public function rejectObjective(Request $request, Objective $objective)
     {
         $userCampaign = $objective->userCampaign;
@@ -148,13 +234,13 @@ class SupervisorObjectiveController extends Controller
             ], 403);
         }
 
-        $request->validate([
+        /*$request->validate([
             'rejection_reason' => 'required|string',
-        ]);
+        ]);*/
 
         $objective->update([
             'status' => 'rejected',
-            'rejection_reason' => $request->rejection_reason,
+            //'rejection_reason' => $request->rejection_reason,
         ]);
 
         $objective->load(['category', 'comments.user']);
@@ -196,12 +282,12 @@ class SupervisorObjectiveController extends Controller
             'user_campaign_uuid' => $userCampaign->uuid,
             'actor_uuid' => Auth::id(),
             'action' => 'returned',
-            'comment' => $request->comment ?? 'Objectifs retournés à l\'employé pour correction.',
+            'comment' => $request->comment ?? 'Objectifs retournés pour correction.',
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Les objectifs ont été retournés à l\'employé.',
+            'message' => 'Les objectifs ont été retournés.',
         ]);
     }
 }

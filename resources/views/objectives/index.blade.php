@@ -9,9 +9,9 @@
     .category-item:hover, .category-item.active { background-color: rgba(var(--bs-primary-rgb), 0.08); color: var(--bs-primary); }
     .category-item.active { font-weight: 600; }
     .category-item .badge { min-width: 24px; }
-    .objective-card { cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
-    .objective-card:hover { border-left-color: var(--bs-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .objective-card.active { border-left-color: var(--bs-primary); background-color: rgba(var(--bs-primary-rgb), 0.03); }
+    .objective-card { cursor: pointer; transition: all 0.2s; }
+    .objective-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 3px solid var(--bs-primary); }
+    .objective-card.active { background-color: rgba(var(--bs-primary-rgb), 0.03); border-left: 3px solid var(--bs-primary); }
     .detail-panel { display: none; }
     .detail-panel.show { display: block; }
     .comment-item { padding: 10px 0; border-bottom: 1px solid var(--bs-border-color); }
@@ -93,7 +93,7 @@
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <small class="fw-semibold">Progression : {{ $validatedCount }}/{{ $totalCount }} objectifs validés</small>
                         @if($rejectedCount > 0)
-                        <small class="text-danger fw-semibold">{{ $rejectedCount }} refusé(s)</small>
+                        <small class="text-danger fw-semibold">{{ $rejectedCount }} retourné(s)</small>
                         @endif
                     </div>
                     <div class="progress" style="height: 6px;">
@@ -124,7 +124,7 @@
             @elseif($userCampaign->objective_status === 'returned')
             <div class="alert alert-info d-flex align-items-center mb-3" role="alert">
                 <i class="fi fi-rr-undo me-2"></i>
-                <div>Vos objectifs ont été retournés par votre supérieur. Corrigez les objectifs refusés et soumettez à nouveau.</div>
+                <div>Vos objectifs ont été retournés par votre supérieur. Corrigez les objectifs retournés et soumettez à nouveau.</div>
             </div>
             @endif
 
@@ -212,7 +212,7 @@
                                                     @endif
                                                 </div>
                                             </div>
-                                            @if($canEdit && $obj->status !== 'validated')
+                                            @if($canEdit && ($obj->status !== 'validated' || $isMidterm))
                                             <div class="d-flex gap-1">
                                                 <button type="button" class="btn btn-sm btn-icon btn-outline-primary rounded-circle waves-effect" onclick="event.stopPropagation(); showEditForm('{{ $obj->uuid }}')" data-bs-toggle="tooltip" title="Modifier">
                                                     <i class="fi fi-rr-pencil"></i>
@@ -295,7 +295,7 @@
                                         <div class="col-md-3 mb-3">
                                             <label for="formWeight" class="form-label">Pondération (%) <span class="text-danger">*</span></label>
                                             <input type="number" class="form-control" id="formWeight" name="weight" min="0" max="100" value="0" required>
-                                            <small class="text-muted" id="weightHelper">Total actuel : {{ $totalWeight }}%</small>
+                                            {{-- <small class="text-muted" id="weightHelper">Total actuel : {{ $totalWeight }}%</small> --}}
                                         </div>
                                         <div class="col-12 mb-3">
                                             <label for="formDescription" class="form-label">Description</label>
@@ -325,6 +325,7 @@
     let currentCategory = 'all';
     let currentObjectiveUuid = null;
     let canEdit = {{ $canEdit ?? false ? 'true' : 'false' }};
+    let isMidterm = {{ $isMidterm ?? false ? 'true' : 'false' }};
     let categoriesMap = @json($categories->keyBy('uuid') ?? []);
 
     function filterCategory(categoryUuid, el) {
@@ -376,7 +377,7 @@
                 loader('hide');
                 if (data.success) {
                     let obj = data.objective;
-                    if (obj.status === 'validated') {
+                    if (obj.status === 'validated' && !isMidterm) {
                         SendError('Cet objectif a été validé et ne peut plus être modifié.');
                         return;
                     }
@@ -406,15 +407,15 @@
     }
 
     function buildObjectiveCard(obj) {
-        let statusColors = { pending: 'secondary', validated: 'success', rejected: 'danger' };
-        let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Refusé' };
+        let statusColors = { pending: 'secondary', validated: 'success', rejected: 'dark' };
+        let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Reourné' };
         let statusColor = statusColors[obj.status] || 'secondary';
         let statusLabel = statusLabels[obj.status] || '';
         let statusBadge = (obj.status && obj.status !== 'pending') ? `<span class="badge bg-${statusColor}-subtle text-${statusColor}">${statusLabel}</span>` : '';
         let weightHtml = obj.weight > 0 ? `<small class="text-muted">Pondération: ${obj.weight}%</small>` : '';
         let rejectionHtml = obj.rejection_reason ? `<small class="text-danger"><i class="fi fi-rr-info me-1"></i>${obj.rejection_reason.substring(0, 50)}</small>` : '';
         let actionsHtml = '';
-        if (canEdit && obj.status !== 'validated') {
+        if (canEdit && (obj.status !== 'validated' || isMidterm)) {
             actionsHtml = `
                 <div class="d-flex gap-1">
                     <button type="button" class="btn btn-sm btn-icon btn-outline-primary rounded-circle waves-effect" onclick="event.stopPropagation(); showEditForm('${obj.uuid}')" data-bs-toggle="tooltip" title="Modifier">
@@ -539,14 +540,14 @@
     }
 
     function renderDetail(obj) {
-        let statusColors = { pending: 'secondary', validated: 'success', rejected: 'danger' };
-        let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Refusé' };
+        let statusColors = { pending: 'secondary', validated: 'success', rejected: 'dark' };
+        let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Retourné' };
         let statusColor = statusColors[obj.status] || 'secondary';
         let statusLabel = statusLabels[obj.status] || '';
         let statusBadge = (obj.status && obj.status !== 'pending') ? `<span class="badge bg-${statusColor}-subtle text-${statusColor}">${statusLabel}</span>` : '';
 
         let actionsHtml = '';
-        if (canEdit && obj.status !== 'validated') {
+        if (canEdit && (obj.status !== 'validated' || isMidterm)) {
             actionsHtml = `
                 <div class="d-flex gap-1">
                     <button type="button" class="btn btn-sm btn-outline-primary waves-effect" onclick="showEditForm('${obj.uuid}')">
@@ -567,7 +568,7 @@
                 </div>
                 ${actionsHtml}
             </div>
-            ${obj.rejection_reason ? `<div class="alert alert-danger py-2 mb-3"><i class="fi fi-rr-cross-circle me-1"></i> <strong>Motif du refus :</strong> ${obj.rejection_reason}</div>` : ''}
+            ${obj.rejection_reason ? `<div class="alert alert-danger py-2 mb-3"><i class="fi fi-rr-cross-circle me-1"></i> <strong>Motif :</strong> ${obj.rejection_reason}</div>` : ''}
             <div class="table-responsive">
                 <table class="table table-borderless mb-0">
                     <tbody>

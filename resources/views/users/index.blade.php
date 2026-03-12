@@ -19,7 +19,7 @@
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table id="usersTable" class="table table-hover align-middle">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -32,9 +32,9 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($users as $index => $user)
+                            @forelse($users as $user)
                             <tr>
-                                <td>{{ $index + 1 }}</td>
+                                <td></td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="avatar avatar-sm">
@@ -128,6 +128,32 @@
 
 @push('scripts')
 <script>
+    // Initialize DataTables
+    $(document).ready(function() {
+        $('#usersTable').DataTable({
+            "pageLength": 20,
+            "order": [[1, 'asc']], // Tri par nom complet (colonne 1)
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json"
+            },
+            "columnDefs": [
+                {
+                    "targets": 0,
+                    "searchable": false,
+                    "orderable": false,
+                    "render": function (data, type, row, meta) {
+                        return meta.row + meta.settings._iDisplayStart + 1;
+                    }
+                },
+                {
+                    "targets": -1, // Dernière colonne (Actions)
+                    "orderable": false,
+                    "searchable": false
+                }
+            ]
+        });
+    });
+
     $('#importForm').on('submit', function(e) {
         e.preventDefault();
         var formData = new FormData(this);

@@ -43,7 +43,7 @@ class EvaluationDecision extends Model
     public function getActionLabelAttribute(): string
     {
         return match ($this->action) {
-            'submitted_to_employee' => 'Évaluation soumise à l\'employé',
+            'submitted_to_employee' => 'Évaluation soumise',
             'returned_to_supervisor' => 'Évaluation retournée au supérieur',
             'validated' => 'Évaluation validée',
             default => $this->action,

@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             EntitySeeder::class,
             UserSeeder::class,
+            PersonnelSeeder::class,
             ObjectiveCategorySeeder::class,
         ]);
     }

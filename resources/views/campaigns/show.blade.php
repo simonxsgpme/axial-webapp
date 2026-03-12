@@ -24,7 +24,7 @@
                 </button>
                 @endif
                 @if($campaign->next_action)
-                <button type="button" class="btn btn-{{ $campaign->next_action['color'] }} btn-sm waves-effect waves-light" onclick="updateStatus('{{ $campaign->uuid }}', '{{ $campaign->next_action['action'] }}', '{{ $campaign->next_action['label'] }}')">
+                <button type="button" class="btn btn-{{ $campaign->next_action['color'] }} btn-sm waves-effect waves-light" onclick="updateStatus('{{ $campaign->uuid }}', '{{ $campaign->next_action['action'] }}', '{{ addslashes($campaign->next_action['label']) }}')">
                     <i class="fi {{ $campaign->next_action['icon'] }} me-1"></i> {{ $campaign->next_action['label'] }}
                 </button>
                 @endif
@@ -215,16 +215,14 @@
                                             </li>
                                             <li>
                                                 <a class="dropdown-item" href="javascript:void(0);" onclick="openUploadMidterm('{{ $uc->uuid }}')">
-                                                    <i class="fi fi-rr-upload me-2"></i> Importer fiche mi-parcours
+                                                    <i class="fi fi-rr-upload me-2"></i> Importer fiche mi-parcours (PDF)
                                                 </a>
                                             </li>
-                                            @if($uc->midterm_file)
                                             <li>
-                                                <a class="dropdown-item" href="{{ route('campaigns.participants.download-midterm', [$campaign->uuid, $uc->uuid]) }}">
-                                                    <i class="fi fi-rr-download me-2"></i> Télécharger fiche mi-parcours
+                                                <a class="dropdown-item" href="{{ route('supervisor.evaluations.download-midterm', $uc->uuid) }}">
+                                                    <i class="fi fi-rr-download me-2"></i> Télécharger fiche mi-parcours @if($uc->midterm_file)(PDF)@else(Word)@endif
                                                 </a>
                                             </li>
-                                            @endif
                                             @if(in_array($campaign->status, ['draft', 'objective_in_progress']))
                                             <li><hr class="dropdown-divider"></li>
                                             <li>
@@ -511,7 +509,7 @@
         });
     });
 
-    function updateStatus(uuid, action, label) {
+    function updateStatus(uuid, action, label, force = false, confirm = false) {
         Swal.fire({
             icon: 'question',
             title: 'Confirmation',
@@ -525,7 +523,7 @@
                 $.ajax({
                     url: '/campaigns/' + uuid + '/status',
                     type: 'POST',
-                    data: { action: action },
+                    data: { action: action, force: force ? 1 : 0, confirm: confirm ? 1 : 0 },
                     headers: {
                         'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                     },
@@ -540,7 +538,45 @@
                     },
                     error: function (data) {
                         loader('hide');
-                        SendError(data.responseJSON.message ?? 'Une erreur est survenue');
+                        let response = data.responseJSON;
+                        
+                        // Si l'erreur nécessite un forçage (uniquement pour la phase objectifs)
+                        if (response && response.require_force) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Attention',
+                                html: '<p>' + response.message + '</p>' +
+                                      '<p class="mt-3"><strong>' + response.not_completed_count + ' participant(s)</strong> sur <strong>' + response.total_count + '</strong> n\'ont pas encore validé leurs objectifs.</p>' +
+                                      '<p class="text-danger mt-2">Si vous forcez la fin de cette phase, seuls les participants <strong>sans aucun objectif renseigné</strong> auront le statut <strong>"Non évalué"</strong>.</p>',
+                                showCancelButton: true,
+                                confirmButtonText: 'Forcer la fin de cette phase',
+                                cancelButtonText: 'Retour',
+                            }).then((forceResult) => {
+                                if (forceResult.isConfirmed) {
+                                    // Relancer avec force = true
+                                    updateStatus(uuid, action, label, true);
+                                }
+                            });
+                        }
+                        // Si l'erreur nécessite une confirmation (phase évaluation)
+                        else if (response && response.require_confirmation) {
+                            Swal.fire({
+                                icon: 'warning',
+                                title: 'Confirmation requise',
+                                html: '<p>' + response.message + '</p>' +
+                                      '<p class="mt-3"><strong>' + response.not_evaluated_count + ' participant(s)</strong> sur <strong>' + response.total_with_objectives + '</strong> ayant renseigné leurs objectifs n\'ont pas encore été évalués.</p>',
+                                showCancelButton: true,
+                                confirmButtonText: 'Oui, terminer quand même',
+                                cancelButtonText: 'Annuler',
+                            }).then((confirmResult) => {
+                                if (confirmResult.isConfirmed) {
+                                    // Relancer avec confirm = true
+                                    updateStatus(uuid, action, label, false, true);
+                                }
+                            });
+                        } else {
+                            SendError(response?.message ?? 'Une erreur est survenue');
+                        }
                     }
                 });
             }

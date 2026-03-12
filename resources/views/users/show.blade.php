@@ -179,6 +179,10 @@
                                     <input type="text" class="form-control" id="edit_position" name="position" value="{{ $user->position }}">
                                 </div>
                                 <div class="col-md-6 mb-3">
+                                    <label for="edit_hire_date" class="form-label">Date d'embauche</label>
+                                    <input type="date" class="form-control" id="edit_hire_date" name="hire_date" value="{{ $user->hire_date }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
                                     <label for="edit_role_uuid" class="form-label">Rôle</label>
                                     <select class="form-select" id="edit_role_uuid" name="role_uuid">
                                         <option value="">-- Sélectionner un rôle --</option>

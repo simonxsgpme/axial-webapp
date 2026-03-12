@@ -139,8 +139,8 @@
     .category-item { cursor: pointer; padding: 8px 12px; border-radius: var(--bs-border-radius); transition: all 0.2s; display: flex; align-items: center; justify-content: space-between; }
     .category-item:hover, .category-item.active { background-color: rgba(var(--bs-primary-rgb), 0.08); color: var(--bs-primary); }
     .category-item.active { font-weight: 600; }
-    .objective-card { transition: all 0.2s; border-left: 3px solid transparent; }
-    .objective-card:hover { border-left-color: var(--bs-primary); }
+    .objective-card { transition: all 0.2s; }
+    .objective-card:hover { border-left: 3px solid var(--bs-primary); }
 </style>
 @endsection
 

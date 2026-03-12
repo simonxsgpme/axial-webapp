@@ -72,6 +72,7 @@ class UserCampaign extends Model
             'submitted' => 'Soumis',
             'returned' => 'Retourné',
             'completed' => 'Terminé',
+            'not_evaluated' => 'Non évalué',
             default => $this->objective_status,
         };
     }
@@ -83,6 +84,7 @@ class UserCampaign extends Model
             'submitted' => 'warning',
             'returned' => 'info',
             'completed' => 'success',
+            'not_evaluated' => 'dark',
             default => 'secondary',
         };
     }
@@ -92,9 +94,10 @@ class UserCampaign extends Model
         return match ($this->evaluation_status) {
             'pending' => 'En attente',
             'supervisor_draft' => 'En cours (Supérieur)',
-            'submitted_to_employee' => 'Soumis à l\'employé',
+            'submitted_to_employee' => 'Soumis au collaborateur',
             'returned_to_supervisor' => 'Retourné au supérieur',
             'validated' => 'Validé',
+            'not_evaluated' => 'Non évalué',
             default => $this->evaluation_status,
         };
     }
@@ -107,6 +110,7 @@ class UserCampaign extends Model
             'submitted_to_employee' => 'warning',
             'returned_to_supervisor' => 'info',
             'validated' => 'success',
+            'not_evaluated' => 'dark',
             default => 'secondary',
         };
     }
@@ -115,11 +119,11 @@ class UserCampaign extends Model
     {
         if ($this->rating === null) return null;
         return match (true) {
-            $this->rating < 20 => 'Insuffisant',
-            $this->rating < 40 => 'Passable',
-            $this->rating < 60 => 'Satisfaisant',
-            $this->rating < 80 => 'Bien',
-            default => 'Excellent',
+            $this->rating < 50 => 'Ne répond pas aux attentes',
+            $this->rating < 80 => 'Répond à quelques attentes',
+            $this->rating < 100 => 'Répond à la plupart des attentes',
+            $this->rating == 100 => 'Répond à toutes les attentes',
+            default => 'Au-delà des attentes',
         };
     }
 
@@ -127,10 +131,10 @@ class UserCampaign extends Model
     {
         if ($this->rating === null) return 'secondary';
         return match (true) {
-            $this->rating < 20 => 'danger',
-            $this->rating < 40 => 'warning',
-            $this->rating < 60 => 'info',
-            $this->rating < 80 => 'primary',
+            $this->rating < 50 => 'danger',
+            $this->rating < 80 => 'warning',
+            $this->rating < 100 => 'info',
+            $this->rating == 100 => 'primary',
             default => 'success',
         };
     }

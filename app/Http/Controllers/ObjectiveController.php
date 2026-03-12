@@ -132,27 +132,33 @@ class ObjectiveController extends Controller
     public function update(Request $request, Objective $objective)
     {
         // Vérifier que l'objectif appartient à l'utilisateur connecté
-        if ($objective->userCampaign->user_uuid !== Auth::id()) {
+        if ($objective->userCampaign->user_uuid != Auth::id() && $objective->userCampaign->user->supervisor_uuid != Auth::id()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Vous n\'êtes pas autorisé à modifier cet objectif.',
             ], 403);
         }
 
-        // Vérifier que l'employé peut encore modifier (draft ou returned) et objectif non validé
+        // Vérifier que l'employé peut encore modifier
         $userCampaign = $objective->userCampaign;
-        if (!in_array($userCampaign->objective_status, ['draft', 'returned'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous ne pouvez plus modifier vos objectifs.',
-            ], 403);
-        }
+        $campaign = $userCampaign->campaign;
+        $isMidterm = $campaign->status === 'midterm_in_progress';
+        
+        // Pendant la phase mi-parcours, permettre la modification sans restriction
+        if (!$isMidterm) {
+            if (!in_array($userCampaign->objective_status, ['draft', 'returned', 'submitted'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous ne pouvez plus modifier vos objectifs.',
+                ], 403);
+            }
 
-        if ($objective->status === 'validated') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cet objectif a déjà été validé et ne peut plus être modifié.',
-            ], 403);
+            if ($objective->status === 'validated') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet objectif a déjà été validé et ne peut plus être modifié.',
+                ], 403);
+            }
         }
 
         $request->validate([
@@ -212,18 +218,36 @@ class ObjectiveController extends Controller
 
         // Vérifier que l'employé peut encore modifier
         $userCampaign = $objective->userCampaign;
-        if (!in_array($userCampaign->objective_status, ['draft', 'returned'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Vous ne pouvez plus supprimer vos objectifs.',
-            ], 403);
+        $campaign = $userCampaign->campaign;
+        $isMidterm = $campaign->status === 'midterm_in_progress';
+        
+        // Pendant la phase mi-parcours, permettre la suppression sans restriction
+        if (!$isMidterm) {
+            if (!in_array($userCampaign->objective_status, ['draft', 'returned'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Vous ne pouvez plus supprimer vos objectifs.',
+                ], 403);
+            }
+
+            if ($objective->status === 'validated') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cet objectif a déjà été validé et ne peut plus être supprimé.',
+                ], 403);
+            }
         }
 
-        if ($objective->status === 'validated') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cet objectif a déjà été validé et ne peut plus être supprimé.',
-            ], 403);
+        // Track history if during midterm phase
+        if ($isMidterm) {
+            ObjectiveHistory::create([
+                'objective_uuid' => $objective->uuid,
+                'changed_by_uuid' => Auth::id(),
+                'field' => 'deleted',
+                'old_value' => $objective->title,
+                'new_value' => null,
+                'phase' => 'midterm',
+            ]);
         }
 
         $objective->delete();
@@ -260,8 +284,8 @@ class ObjectiveController extends Controller
         }
 
         // Vérifier que le total des pondérations est 100%
-        $totalWeight = $userCampaign->objectives()->sum('weight');
-        if ($totalWeight !== 100) {
+        $totalWeight = (float)$userCampaign->objectives()->sum('weight');
+        if ($totalWeight != 100) {
             return response()->json([
                 'success' => false,
                 'message' => 'Le total des pondérations doit être égal à 100% (actuellement ' . $totalWeight . '%).',

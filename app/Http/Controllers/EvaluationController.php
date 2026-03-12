@@ -167,7 +167,7 @@ class EvaluationController extends Controller
             'user_campaign_uuid' => $userCampaign->uuid,
             'actor_uuid' => Auth::id(),
             'action' => 'validated',
-            'comment' => $request->comment ?? 'Évaluation validée par l\'employé. Note globale : ' . $userCampaign->rating . '%.',
+            'comment' => $request->comment ?? 'Évaluation validée. Note globale : ' . $userCampaign->rating . '%.',
         ]);
 
         return response()->json([

@@ -29,7 +29,7 @@ class Objective extends Model
         return match ($this->status) {
             'pending' => 'En attente',
             'validated' => 'Validé',
-            'rejected' => 'Refusé',
+            'rejected' => 'Retourné',
             default => $this->status,
         };
     }
@@ -39,7 +39,7 @@ class Objective extends Model
         return match ($this->status) {
             'pending' => 'secondary',
             'validated' => 'success',
-            'rejected' => 'danger',
+            'rejected' => 'dark',
             default => 'secondary',
         };
     }

@@ -4,9 +4,9 @@
 
 @section('styles')
 <style>
-    .subordinate-card { cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
-    .subordinate-card:hover { border-left-color: var(--bs-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .subordinate-card.active { border-left-color: var(--bs-primary); background-color: rgba(var(--bs-primary-rgb), 0.03); }
+    .subordinate-card { cursor: pointer; transition: all 0.2s; }
+    .subordinate-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 3px solid var(--bs-primary); }
+    .subordinate-card.active { background-color: rgba(var(--bs-primary-rgb), 0.03); border-left: 3px solid var(--bs-primary); }
     .obj-review-card { border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: 15px; margin-bottom: 12px; transition: all 0.2s; }
     .obj-review-card.status-validated { border-left: 3px solid var(--bs-success); }
     .obj-review-card.status-rejected { border-left: 3px solid var(--bs-danger); }
@@ -120,6 +120,18 @@
                                     </div>
                                     <div class="d-flex gap-2 align-items-center">
                                         <span class="badge" id="subStatus"></span>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle waves-effect" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fi fi-rr-download me-1"></i> Télécharger
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#" id="downloadObjectivesWord"><i class="fi fi-rr-file-word me-2"></i> Fiche Objectifs (Word)</a></li>
+                                                <li><a class="dropdown-item" href="#" id="downloadMidtermWord"><i class="fi fi-rr-file-word me-2"></i> Fiche Mi-Parcours (Word)</a></li>
+                                            </ul>
+                                        </div>
+                                        <button type="button" class="btn btn-success btn-sm waves-effect waves-light" id="validateSelectedBtn" style="display:none;" onclick="validateSelected()">
+                                            <i class="fi fi-rr-check me-1"></i> Valider la sélection (<span id="selectedCount">0</span>)
+                                        </button>
                                         <button type="button" class="btn btn-warning btn-sm waves-effect waves-light" id="btnReturn" style="display:none;" onclick="returnObjectives()">
                                             <i class="fi fi-rr-undo me-1"></i> Retourner les objectifs
                                         </button>
@@ -129,12 +141,8 @@
                         </div>
 
                         {{-- Onglets --}}
-                        <ul class="nav nav-tabs mb-3" role="tablist">
-                            <li class="nav-item">
-                                <a class="nav-link active" data-bs-toggle="tab" href="#tabObjectives" role="tab">
-                                    <i class="fi fi-rr-bullseye me-1"></i> Objectifs <span class="badge bg-primary ms-1" id="tabObjCount">0</span>
-                                </a>
-                            </li>
+                        <ul class="nav nav-tabs mb-3" role="tablist" id="categoryTabs">
+                            {{-- Les onglets de catégories seront générés dynamiquement --}}
                             <li class="nav-item">
                                 <a class="nav-link" data-bs-toggle="tab" href="#tabTimeline" role="tab">
                                     <i class="fi fi-rr-time-past me-1"></i> Historique
@@ -142,11 +150,8 @@
                             </li>
                         </ul>
 
-                        <div class="tab-content">
-                            {{-- Tab Objectifs --}}
-                            <div class="tab-pane fade show active" id="tabObjectives" role="tabpanel">
-                                <div id="objectivesReviewList"></div>
-                            </div>
+                        <div class="tab-content" id="categoryTabContent">
+                            {{-- Les contenus des onglets de catégories seront générés dynamiquement --}}
 
                             {{-- Tab Timeline --}}
                             <div class="tab-pane fade" id="tabTimeline" role="tabpanel">
@@ -186,6 +191,52 @@
         </div>
     </div>
 </div>
+
+{{-- Modal modification objectif --}}
+<div class="modal fade" id="editObjectiveModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="fi fi-rr-pencil me-1"></i> Modifier l'objectif</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editObjectiveForm" onsubmit="submitEditObjective(event)">
+                    <input type="hidden" id="editObjUuid" value="">
+                    <div class="row">
+                        <div class="col-md-5 mb-3">
+                            <label for="editObjTitle" class="form-label">Titre <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editObjTitle" name="title" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="editObjCategory" class="form-label">Catégorie <span class="text-danger">*</span></label>
+                            <select class="form-select" id="editObjCategory" name="objective_category_uuid" required>
+                                <option value="">Sélectionner...</option>
+                                @foreach($categories as $cat)
+                                <option value="{{ $cat->uuid }}">{{ $cat->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="editObjWeight" class="form-label">Pondération (%) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="editObjWeight" name="weight" min="0" max="100" value="0" required>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label for="editObjDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="editObjDescription" name="description" rows="3"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary waves-effect" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary waves-effect waves-light" onclick="submitEditObjective(event)">
+                    <i class="fi fi-rr-check me-1"></i> Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -193,6 +244,7 @@
     let currentUcUuid = null;
     let currentUcData = null;
     let categoriesMap = @json($categories->keyBy('uuid') ?? []);
+    let currentActiveTab = null;
 
     function loadSubordinate(ucUuid) {
         currentUcUuid = ucUuid;
@@ -218,6 +270,23 @@
         });
     }
 
+    // Gestionnaires pour les téléchargements Word
+    $(document).on('click', '#downloadObjectivesWord', function(e) {
+        e.preventDefault();
+        if (currentUcData) {
+            let campaignUuid = '{{ $campaign->uuid ?? "" }}';
+            window.location.href = '/campaigns/' + campaignUuid + '/participants/' + currentUcData.uuid + '/word-objectives';
+        }
+    });
+
+    $(document).on('click', '#downloadMidtermWord', function(e) {
+        e.preventDefault();
+        if (currentUcData) {
+            let campaignUuid = '{{ $campaign->uuid ?? "" }}';
+            window.location.href = '/campaigns/' + campaignUuid + '/participants/' + currentUcData.uuid + '/word-midterm';
+        }
+    });
+
     function renderSubordinateDetail(uc) {
         document.getElementById('emptyDetail').style.display = 'none';
         document.getElementById('subordinateDetail').style.display = 'block';
@@ -237,49 +306,172 @@
         // Bouton retourner visible uniquement si soumis
         document.getElementById('btnReturn').style.display = uc.objective_status === 'submitted' ? '' : 'none';
 
-        document.getElementById('tabObjCount').textContent = uc.objectives ? uc.objectives.length : 0;
-
-        renderObjectivesReview(uc.objectives || [], uc.objective_status);
+        renderCategoryTabs(uc.objectives || [], uc.objective_status);
         renderTimeline(uc.decisions || []);
     }
 
-    function renderObjectivesReview(objectives, ucStatus) {
+    function renderCategoryTabs(objectives, ucStatus) {
+        // Sauvegarder l'onglet actif avant de nettoyer
+        let categoryTabsEl = document.getElementById('categoryTabs');
+        let categoryTabContentEl = document.getElementById('categoryTabContent');
+        let activeTab = categoryTabsEl.querySelector('.nav-link.active');
+        if (activeTab && activeTab.getAttribute('href') !== '#tabTimeline') {
+            currentActiveTab = activeTab.getAttribute('href');
+        }
+        
+        // Supprimer tous les onglets sauf Historique (en collectant d'abord les éléments à supprimer)
+        let tabsToRemove = [];
+        categoryTabsEl.querySelectorAll('li').forEach(li => {
+            let link = li.querySelector('a');
+            if (link && link.getAttribute('href') !== '#tabTimeline') {
+                tabsToRemove.push(li);
+            }
+        });
+        tabsToRemove.forEach(li => li.remove());
+        
+        // Supprimer tous les contenus sauf Historique
+        categoryTabContentEl.querySelectorAll('.tab-pane').forEach(pane => {
+            if (pane.id !== 'tabTimeline') {
+                pane.remove();
+            }
+        });
+
+        // Regrouper les objectifs par catégorie
+        let categoriesData = {};
+        objectives.forEach(obj => {
+            let catUuid = obj.objective_category_uuid;
+            if (!categoriesData[catUuid]) {
+                categoriesData[catUuid] = {
+                    category: obj.category,
+                    objectives: []
+                };
+            }
+            categoriesData[catUuid].objectives.push(obj);
+        });
+
+        // Générer les onglets
+        let tabsHtml = '';
+        let contentHtml = '';
+        let isFirst = true;
+
+        Object.keys(categoriesData).forEach(catUuid => {
+            let catData = categoriesData[catUuid];
+            let catName = catData.category ? catData.category.name : 'Sans catégorie';
+            let catDisplayName = catData.category ? catData.category.description : 'Sans catégorie';
+            let catPercentage = catData.category ? catData.category.percentage : 0;
+            let objCount = catData.objectives.length;
+            let tabId = 'tabCat-' + catUuid;
+
+            // Calculer le restant disponible pour la catégorie
+            let catMax = catPercentage;
+            let catUsed = 0;
+            objectives.forEach(o => {
+                if (o.objective_category_uuid === catUuid && o.status === 'validated') {
+                    catUsed += (o.weight || 0);
+                }
+            });
+            let catRemaining = catMax - catUsed;
+
+            // Onglet
+            tabsHtml += `
+                <li class="nav-item">
+                    <a class="nav-link ${isFirst ? 'active' : ''}" data-bs-toggle="tab" href="#${tabId}" role="tab">
+                        <i class="fi fi-rr-bullseye me-1"></i> ${catName} <span class="badge bg-primary ms-1">${objCount}</span>
+                    </a>
+                </li>`;
+
+            // Contenu
+            contentHtml += `
+                <div class="tab-pane fade ${isFirst ? 'show active' : ''}" id="${tabId}" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">${catDisplayName}</h6>
+                            
+                        </div>
+                    </div>
+                    ${renderObjectivesForCategory(catData.objectives, ucStatus, catUuid, catPercentage, objectives)}
+                </div>`;
+
+            isFirst = false;
+        });
+
+        // Si aucun objectif
+        if (objectives.length === 0) {
+            tabsHtml = `
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#tabEmpty" role="tab">
+                        <i class="fi fi-rr-bullseye me-1"></i> Objectifs <span class="badge bg-primary ms-1">0</span>
+                    </a>
+                </li>`;
+            contentHtml = `
+                <div class="tab-pane fade show active" id="tabEmpty" role="tabpanel">
+                    <div class="card"><div class="card-body text-center py-4 text-muted">Aucun objectif défini.</div></div>
+                </div>`;
+        }
+
+        // Insérer les onglets avant l'onglet Historique
+        let timelineTab = categoryTabsEl.querySelector('li');
+        timelineTab.insertAdjacentHTML('beforebegin', tabsHtml);
+
+        // Insérer le contenu avant l'onglet Historique
+        let timelineContent = categoryTabContentEl.querySelector('#tabTimeline');
+        timelineContent.insertAdjacentHTML('beforebegin', contentHtml);
+        
+        // Restaurer l'onglet actif si possible
+        if (currentActiveTab) {
+            let tabToActivate = categoryTabsEl.querySelector('a[href="' + currentActiveTab + '"]');
+            if (tabToActivate) {
+                let tab = new bootstrap.Tab(tabToActivate);
+                tab.show();
+            }
+        }
+    }
+
+    function renderObjectivesForCategory(objectives, ucStatus, catUuid, catPercentage, allObjectives) {
         let html = '';
         if (objectives.length === 0) {
-            html = '<div class="card"><div class="card-body text-center py-4 text-muted">Aucun objectif défini.</div></div>';
+            html = '<div class="card"><div class="card-body text-center py-4 text-muted">Aucun objectif dans cette catégorie.</div></div>';
         } else {
             let canReview = ucStatus === 'submitted';
+
+            // Calculer le restant disponible pour la catégorie
+            let catMax = catPercentage;
+            let catUsed = 0;
+            allObjectives.forEach(o => {
+                if (o.objective_category_uuid === catUuid && o.status === 'validated' && objectives.findIndex(obj => obj.uuid === o.uuid) === -1) {
+                    catUsed += (o.weight || 0);
+                }
+            });
+            let catRemaining = catMax - catUsed;
+
             objectives.forEach(obj => {
-                let statusColors = { pending: 'secondary', validated: 'success', rejected: 'danger' };
-                let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Refusé' };
-                let catName = obj.category ? obj.category.name : '';
-                let catPercentage = obj.category ? obj.category.percentage : 0;
+                let statusColors = { pending: 'secondary', validated: 'success', rejected: 'dark' };
+                let statusLabels = { pending: 'En attente', validated: 'Validé', rejected: 'Retourné' };
 
                 let actionsHtml = '';
-                // Calculer le restant disponible pour la catégorie
-                let catUuid = obj.objective_category_uuid;
-                let catMax = catPercentage;
-                let catUsed = 0;
-                objectives.forEach(o => {
-                    if (o.objective_category_uuid === catUuid && o.status === 'validated' && o.uuid !== obj.uuid) {
-                        catUsed += (o.weight || 0);
-                    }
-                });
-                let catRemaining = catMax - catUsed;
+                // Recalculer le restant pour cet objectif spécifique
+                let objCatRemaining = catRemaining;
+                if (obj.status === 'validated') {
+                    objCatRemaining += (obj.weight || 0);
+                }
 
                 if (canReview && obj.status === 'pending') {
                     actionsHtml = `
                         <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
-                            <div class="input-group input-group-sm" style="max-width: 300px;">
-                                <span class="input-group-text">Pondération</span>
-                                <input type="number" class="form-control" id="weight-${obj.uuid}" min="0" max="${catRemaining}" value="${obj.weight || 0}" placeholder="%">
-                                <span class="input-group-text">/ ${catRemaining}% dispo.</span>
+                            <div class="form-check">
+                                <input class="form-check-input objective-checkbox" type="checkbox" value="${obj.uuid}" id="check-${obj.uuid}" data-category="${catUuid}" data-remaining="${objCatRemaining}">
+                                <label class="form-check-label" for="check-${obj.uuid}"></label>
                             </div>
-                            <button type="button" class="btn btn-success btn-sm waves-effect waves-light" onclick="validateObj('${obj.uuid}', ${catRemaining})">
-                                <i class="fi fi-rr-check me-1"></i> Valider
+                            <div class="input-group input-group-sm" style="max-width: 300px;">
+                                <span class="input-group-text">Poids</span>
+                                <input type="number" class="form-control" id="weight-${obj.uuid}" min="0" max="${objCatRemaining}" value="${obj.weight || 0}" placeholder="%">
+                            </div>
+                            
+                            <button type="button" class="btn btn-dark btn-sm waves-effect waves-light" onclick="rejectObj('${obj.uuid}')">
+                                <i class="fi fi-rr-undo me-1"></i> A corriger
                             </button>
-                            <button type="button" class="btn btn-danger btn-sm waves-effect waves-light" onclick="rejectObj('${obj.uuid}')">
-                                <i class="fi fi-rr-cross me-1"></i> Refuser
+                            <button type="button" class="btn btn-outline-primary btn-sm waves-effect" onclick="openEditModal('${obj.uuid}')">
+                                <i class="fi fi-rr-pencil"></i>
                             </button>
                             <button type="button" class="btn btn-outline-secondary btn-sm waves-effect" onclick="openComments('${obj.uuid}', '${obj.title.replace(/'/g, "\\'")}')">
                                 <i class="fi fi-rr-comment-alt me-1"></i> ${obj.comments ? obj.comments.length : 0}
@@ -288,7 +480,7 @@
                 } else {
                     actionsHtml = `
                         <div class="d-flex gap-2 mt-2">
-                            ${obj.weight > 0 ? `<small class="text-muted">Pondération: ${obj.weight}%</small>` : ''}
+                            ${obj.weight > 0 ? `<small class="text-muted mt-2">Poids: ${obj.weight}%</small>` : ''}
                             <button type="button" class="btn btn-outline-secondary btn-sm waves-effect" onclick="openComments('${obj.uuid}', '${obj.title.replace(/'/g, "\\'")}')">
                                 <i class="fi fi-rr-comment-alt me-1"></i> ${obj.comments ? obj.comments.length : 0}
                             </button>
@@ -303,7 +495,6 @@
                                     <h6 class="mb-0 fw-semibold">${obj.title}</h6>
                                     <span class="badge bg-${statusColors[obj.status] || 'secondary'}-subtle text-${statusColors[obj.status] || 'secondary'}">${statusLabels[obj.status] || obj.status}</span>
                                 </div>
-                                <small class="text-muted">${catName} (${catPercentage}%)</small>
                                 ${obj.description ? `<p class="mb-0 mt-1" style="font-size: 13px;">${obj.description}</p>` : ''}
                                 ${obj.rejection_reason ? `<div class="alert alert-danger py-1 px-2 mt-2 mb-0" style="font-size: 12px;"><i class="fi fi-rr-cross-circle me-1"></i>${obj.rejection_reason}</div>` : ''}
                             </div>
@@ -312,7 +503,7 @@
                     </div>`;
             });
         }
-        document.getElementById('objectivesReviewList').innerHTML = html;
+        return html;
     }
 
     function renderTimeline(decisions) {
@@ -352,8 +543,6 @@
 
         Swal.fire({
             icon: 'question', title: 'Valider cet objectif ?',
-            text: 'Pondération : ' + weight + '%',
-            input: 'text', inputLabel: 'Commentaire (optionnel)', inputPlaceholder: 'Ajouter un commentaire...',
             showDenyButton: true, confirmButtonText: 'Valider', denyButtonText: 'Annuler',
         }).then((result) => {
             if (result.isConfirmed) {
@@ -369,6 +558,11 @@
                             if (data.all_validated) {
                                 setTimeout(() => location.reload(), 1500);
                             } else {
+                                // Sauvegarder l'onglet actif
+                                let activeTabLink = document.querySelector('#categoryTabs .nav-link.active');
+                                if (activeTabLink) {
+                                    currentActiveTab = activeTabLink.getAttribute('href');
+                                }
                                 loadSubordinate(currentUcUuid);
                             }
                         } else { SendError(data.message); }
@@ -381,22 +575,25 @@
 
     function rejectObj(objUuid) {
         Swal.fire({
-            icon: 'warning', title: 'Refuser cet objectif ?',
-            input: 'textarea', inputLabel: 'Motif du refus (obligatoire)', inputPlaceholder: 'Expliquez pourquoi cet objectif est refusé...',
-            inputValidator: (value) => { if (!value) return 'Le motif du refus est obligatoire.'; },
-            showDenyButton: true, confirmButtonText: 'Refuser', denyButtonText: 'Annuler',
-            confirmButtonColor: '#dc3545',
+            icon: 'warning', title: 'Retourner pour correction ?',
+            showDenyButton: true, confirmButtonText: 'Retourner', denyButtonText: 'Annuler',
+            // confirmButtonColor: '#dc3545',
         }).then((result) => {
             if (result.isConfirmed) {
                 loader();
                 $.ajax({
                     url: '/supervisor/objectives/' + objUuid + '/reject', type: 'POST',
-                    data: { rejection_reason: result.value },
+                    data: { rejection_reason: '' },
                     headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
                     success: function(data) {
                         loader('hide');
                         if (data.success) {
-                            Swal.fire({ icon: 'success', title: 'Objectif refusé', text: data.message, showConfirmButton: false, timer: 1500 });
+                            Swal.fire({ icon: 'success', title: 'Objectif retourné pour correction', text: data.message, showConfirmButton: false, timer: 1500 });
+                            // Sauvegarder l'onglet actif
+                            let activeTabLink = document.querySelector('#categoryTabs .nav-link.active');
+                            if (activeTabLink) {
+                                currentActiveTab = activeTabLink.getAttribute('href');
+                            }
                             loadSubordinate(currentUcUuid);
                         } else { SendError(data.message); }
                     },
@@ -409,7 +606,7 @@
     function returnObjectives() {
         Swal.fire({
             icon: 'warning', title: 'Retourner les objectifs ?',
-            text: 'Les objectifs sans décision seront automatiquement refusés.',
+            text: 'Les objectifs sans décision seront automatiquement retournés.',
             input: 'textarea', inputLabel: 'Commentaire (optionnel)', inputPlaceholder: 'Ajouter un commentaire...',
             showDenyButton: true, confirmButtonText: 'Retourner', denyButtonText: 'Annuler',
             confirmButtonColor: '#ffc107',
@@ -508,6 +705,185 @@
                 else { SendError(data.message); }
             },
             error: function(data) { SendError(data.responseJSON?.message ?? 'Une erreur est survenue'); }
+        });
+    }
+
+    // Fonctions pour la modal de modification d'objectif
+    function openEditModal(objUuid) {
+        loader();
+        $.ajax({
+            url: '/objectives/' + objUuid,
+            type: 'GET',
+            success: function(data) {
+                loader('hide');
+                if (data.success) {
+                    let obj = data.objective;
+                    document.getElementById('editObjUuid').value = obj.uuid;
+                    document.getElementById('editObjTitle').value = obj.title;
+                    document.getElementById('editObjCategory').value = obj.objective_category_uuid;
+                    document.getElementById('editObjWeight').value = obj.weight || 0;
+                    document.getElementById('editObjDescription').value = obj.description || '';
+                    
+                    let modal = new bootstrap.Modal(document.getElementById('editObjectiveModal'));
+                    modal.show();
+                }
+            },
+            error: function(data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+            }
+        });
+    }
+
+    function submitEditObjective(e) {
+        e.preventDefault();
+        let objUuid = document.getElementById('editObjUuid').value;
+        let form = document.getElementById('editObjectiveForm');
+        let formData = new FormData(form);
+        formData.append('_method', 'PUT');
+
+        loader();
+        $.ajax({
+            url: '/objectives/' + objUuid,
+            type: 'POST',
+            data: formData,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            cache: false,
+            contentType: false,
+            processData: false,
+            success: function(data) {
+                loader('hide');
+                if (data.success) {
+                    // Fermer la modal
+                    let modal = bootstrap.Modal.getInstance(document.getElementById('editObjectiveModal'));
+                    modal.hide();
+                    
+                    // Sauvegarder l'onglet actif
+                    let activeTabLink = document.querySelector('#categoryTabs .nav-link.active');
+                    if (activeTabLink) {
+                        currentActiveTab = activeTabLink.getAttribute('href');
+                    }
+                    
+                    // Recharger uniquement les données du collaborateur actuel
+                    loadSubordinate(currentUcUuid);
+                    
+                    Swal.fire({ 
+                        icon: 'success', 
+                        title: 'Succès', 
+                        text: 'L\'objectif a été modifié avec succès.', 
+                        showConfirmButton: false, 
+                        timer: 1500 
+                    });
+                } else {
+                    SendError(data.message);
+                }
+            },
+            error: function(data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+            }
+        });
+    }
+
+    // Gestion de la sélection des checkboxes
+    $(document).on('change', '.objective-checkbox', function() {
+        updateSelectedCount();
+    });
+
+    function updateSelectedCount() {
+        let selectedCount = $('.objective-checkbox:checked').length;
+        $('#selectedCount').text(selectedCount);
+        if (selectedCount > 0) {
+            $('#validateSelectedBtn').show();
+        } else {
+            $('#validateSelectedBtn').hide();
+        }
+    }
+
+    function validateSelected() {
+        let selectedCheckboxes = $('.objective-checkbox:checked');
+        if (selectedCheckboxes.length === 0) {
+            SendError('Veuillez sélectionner au moins un objectif.');
+            return;
+        }
+
+        let objectives = [];
+        let hasError = false;
+        let errorMessage = '';
+
+        selectedCheckboxes.each(function() {
+            let objUuid = $(this).val();
+            let weight = $('#weight-' + objUuid).val();
+            let remaining = $(this).data('remaining');
+
+            if (!weight || weight < 0 || weight > 100) {
+                hasError = true;
+                errorMessage = 'Veuillez saisir une pondération valide (0-100) pour tous les objectifs sélectionnés.';
+                return false;
+            }
+
+            if (parseInt(weight) > remaining) {
+                hasError = true;
+                errorMessage = 'La pondération de l\'un des objectifs dépasse le restant disponible pour sa catégorie.';
+                return false;
+            }
+
+            objectives.push({
+                uuid: objUuid,
+                weight: parseInt(weight)
+            });
+        });
+
+        if (hasError) {
+            SendError(errorMessage);
+            return;
+        }
+
+        Swal.fire({
+            icon: 'question',
+            title: 'Valider ' + objectives.length + ' objectif(s) ?',
+            text: 'Vous êtes sur le point de valider ' + objectives.length + ' objectif(s) en une seule fois.',
+            showDenyButton: true,
+            confirmButtonText: 'Valider',
+            denyButtonText: 'Annuler',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                loader();
+                $.ajax({
+                    url: '/supervisor/objectives/validate-multiple',
+                    type: 'POST',
+                    data: { objectives: objectives },
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    success: function(data) {
+                        loader('hide');
+                        if (data.success) {
+                            Swal.fire({ 
+                                icon: 'success', 
+                                title: 'Succès', 
+                                text: data.message, 
+                                showConfirmButton: false, 
+                                timer: 1500 
+                            });
+                            if (data.all_validated) {
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                // Sauvegarder l'onglet actif
+                                let activeTabLink = document.querySelector('#categoryTabs .nav-link.active');
+                                if (activeTabLink) {
+                                    currentActiveTab = activeTabLink.getAttribute('href');
+                                }
+                                loadSubordinate(currentUcUuid);
+                            }
+                        } else {
+                            SendError(data.message);
+                        }
+                    },
+                    error: function(data) {
+                        loader('hide');
+                        SendError(data.responseJSON?.message ?? 'Une erreur est survenue');
+                    }
+                });
+            }
         });
     }
 </script>

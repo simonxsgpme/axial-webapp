@@ -30,6 +30,7 @@ class User extends Authenticatable
         'password',
         'phone',
         'position',
+        'hire_date',
         'avatar',
         'is_active',
         'last_login_at',
@@ -100,5 +101,53 @@ class User extends Authenticatable
     public function campaigns()
     {
         return $this->belongsToMany(Campaign::class, 'user_campaigns', 'user_uuid', 'campaign_uuid', 'uuid', 'uuid');
+    }
+
+    /**
+     * Vérifier si l'utilisateur a une permission spécifique
+     */
+    public function hasPermission(string $permissionSlug): bool
+    {
+        if (!$this->role) {
+            return false;
+        }
+
+        $permission = Permission::where('slug', $permissionSlug)->first();
+        if (!$permission) {
+            return false;
+        }
+
+        $rolePermission = RolePermission::where('role_uuid', $this->role_uuid)
+            ->where('permission_uuid', $permission->uuid)
+            ->where('status', true)
+            ->first();
+
+        return $rolePermission !== null;
+    }
+
+    /**
+     * Vérifier si l'utilisateur a l'une des permissions données
+     */
+    public function hasAnyPermission(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if ($this->hasPermission($permission)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Vérifier si l'utilisateur a toutes les permissions données
+     */
+    public function hasAllPermissions(array $permissions): bool
+    {
+        foreach ($permissions as $permission) {
+            if (!$this->hasPermission($permission)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -11,5 +11,8 @@
   <link rel="stylesheet" href="{{ asset('assets/libs/simplebar/simplebar.css') }}">
   <link rel="stylesheet" href="{{ asset('assets/libs/node-waves/waves.css') }}">
   <link rel="stylesheet" href="{{ asset('assets/libs/bootstrap-select/css/bootstrap-select.min.css') }}">
+  
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
 
   <link rel="stylesheet" href="{{ asset('assets/css/styles.css') }}">

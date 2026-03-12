@@ -109,6 +109,7 @@ class CampaignController extends Controller
     {
         $request->validate([
             'action' => 'required|in:start-objectives,complete-objectives,start-midterm,complete-midterm,start-evaluations,complete-evaluations,archive',
+            'force' => 'nullable|boolean',
         ]);
 
         $transitions = [
@@ -154,17 +155,36 @@ class CampaignController extends Controller
 
             if ($completedParticipants < $totalParticipants) {
                 $remaining = $totalParticipants - $completedParticipants;
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Impossible de terminer la phase objectifs : ' . $remaining . ' participant(s) sur ' . $totalParticipants . ' n\'ont pas encore terminé la validation de leurs objectifs.',
-                ], 422);
+                
+                // Si force n'est pas activé, retourner un avertissement avec les détails
+                if (!$request->boolean('force')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Impossible de terminer la phase objectifs : ' . $remaining . ' participant(s) sur ' . $totalParticipants . ' n\'ont pas encore terminé la validation de leurs objectifs.',
+                        'require_force' => true,
+                        'not_completed_count' => $remaining,
+                        'total_count' => $totalParticipants,
+                    ], 422);
+                }
+                
+                // Si force est activé, marquer comme "not_evaluated" uniquement les participants qui n'ont AUCUN objectif
+                $userCampaigns = $campaign->userCampaigns()
+                    ->where('objective_status', '!=', 'completed')
+                    ->get();
+                
+                foreach ($userCampaigns as $uc) {
+                    // Ne marquer 'not_evaluated' que si l'utilisateur n'a aucun objectif
+                    if ($uc->objectives()->count() === 0) {
+                        $uc->update(['objective_status' => 'not_evaluated']);
+                    }
+                }
             }
         }
 
-        // Vérifier que tous les participants ont validé leur évaluation avant de clôturer la phase évaluations
-        if ($request->action === 'complete-evaluations') {
+        // Vérifier que tous les participants ont terminé la phase mi-parcours
+        if ($request->action === 'complete-midterm') {
             $totalParticipants = $campaign->userCampaigns()->count();
-            $validatedParticipants = $campaign->userCampaigns()->where('evaluation_status', 'validated')->count();
+            $completedParticipants = $campaign->userCampaigns()->whereNotNull('midterm_file')->count();
 
             if ($totalParticipants === 0) {
                 return response()->json([
@@ -173,12 +193,54 @@ class CampaignController extends Controller
                 ], 422);
             }
 
-            if ($validatedParticipants < $totalParticipants) {
-                $remaining = $totalParticipants - $validatedParticipants;
+            if ($completedParticipants < $totalParticipants) {
+                $remaining = $totalParticipants - $completedParticipants;
+                
+                // Pas de forçage pour la phase mi-parcours
                 return response()->json([
                     'success' => false,
-                    'message' => 'Impossible de terminer la phase évaluations : ' . $remaining . ' participant(s) sur ' . $totalParticipants . ' n\'ont pas encore validé leur évaluation.',
+                    'message' => 'Impossible de terminer la phase mi-parcours : ' . $remaining . ' participant(s) sur ' . $totalParticipants . ' n\'ont pas encore importé leur fiche mi-parcours.',
+                    'not_completed_count' => $remaining,
+                    'total_count' => $totalParticipants,
                 ], 422);
+            }
+        }
+
+        // Vérifier que tous les participants ont validé leur évaluation avant de clôturer la phase évaluations
+        if ($request->action === 'complete-evaluations') {
+            $totalParticipants = $campaign->userCampaigns()->count();
+            
+            // Compter les participants qui ont des objectifs renseignés
+            $participantsWithObjectives = $campaign->userCampaigns()
+                ->whereHas('objectives')
+                ->count();
+            
+            // Compter les participants validés
+            $validatedParticipants = $campaign->userCampaigns()
+                ->where('evaluation_status', 'validated')
+                ->count();
+
+            if ($totalParticipants === 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Aucun participant dans cette campagne.',
+                ], 422);
+            }
+
+            // Vérifier si des participants avec objectifs ne sont pas encore évalués
+            if ($validatedParticipants < $participantsWithObjectives) {
+                $remaining = $participantsWithObjectives - $validatedParticipants;
+                
+                // Demander confirmation avant de terminer
+                if (!$request->boolean('confirm')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Attention : ' . $remaining . ' participant(s) ayant renseigné leurs objectifs n\'ont pas encore été évalués. Voulez-vous vraiment terminer la phase évaluation ?',
+                        'require_confirmation' => true,
+                        'not_evaluated_count' => $remaining,
+                        'total_with_objectives' => $participantsWithObjectives,
+                    ], 422);
+                }
             }
         }
 
@@ -374,15 +436,283 @@ class CampaignController extends Controller
 
     public function pdfObjectives(Campaign $campaign, UserCampaign $userCampaign)
     {
-        $userCampaign->load(['user', 'objectives.category']);
+        $userCampaign->load(['user.entity', 'supervisor', 'objectives.category']);
 
-        $objectives = $userCampaign->objectives->sortBy(fn($o) => $o->category->name ?? '');
+        // Grouper les objectifs par catégorie
+        $objectivesByCategory = $userCampaign->objectives->groupBy('objective_category_uuid');
+        
         $userName = $userCampaign->user->full_name;
         $campaignName = $campaign->name;
         $year = $campaign->year;
 
         // Generate simple HTML-based PDF using browser print
-        return view('campaigns.pdf-objectives', compact('campaign', 'userCampaign', 'objectives', 'userName', 'campaignName', 'year'));
+        return view('campaigns.pdf-objectives', compact('campaign', 'userCampaign', 'objectivesByCategory', 'userName', 'campaignName', 'year'));
+    }
+
+    public function wordObjectives(Campaign $campaign, UserCampaign $userCampaign)
+    {
+        $userCampaign->load(['user.entity', 'supervisor', 'objectives.category']);
+
+        // Grouper les objectifs par catégorie
+        $objectivesByCategory = $userCampaign->objectives->groupBy('objective_category_uuid');
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $section = $phpWord->addSection();
+
+        // Styles
+        $phpWord->addFontStyle('titleStyle', ['bold' => true, 'size' => 14]);
+        $phpWord->addFontStyle('headingStyle', ['bold' => true, 'size' => 12]);
+        $phpWord->addFontStyle('normalStyle', ['size' => 11]);
+        $phpWord->addFontStyle('smallStyle', ['size' => 10]);
+
+        // Titre
+        $section->addText(
+            'Rapport individuel de gestion de la performance ' . $campaign->year,
+            'titleStyle'
+        );
+        $section->addTextBreak(1);
+
+        // Informations employé
+        $nameParts = explode(' ', $userCampaign->user->full_name);
+        $lastName = strtoupper(array_pop($nameParts));
+        $firstName = implode(' ', $nameParts);
+
+        $section->addText('Nom : ' . $lastName, 'normalStyle');
+        $section->addText('Prénoms : ' . $firstName, 'normalStyle');
+        $section->addText('Fonction : ' . ($userCampaign->user->position ?? '-'), 'normalStyle');
+        $section->addText('Date d\'embauche : ' . ($userCampaign->user->hire_date ? \Carbon\Carbon::parse($userCampaign->user->hire_date)->format('d/m/Y') : '-'), 'normalStyle');
+        $section->addText('Direction / Service : ' . ($userCampaign->user->entity->name ?? '-'), 'normalStyle');
+        $section->addText('Étape de la campagne : ' . $campaign->status_label, 'normalStyle');
+        $section->addText('Nom de l\'évaluateur : ' . ($userCampaign->supervisor->full_name ?? '-'), 'normalStyle');
+        $section->addTextBreak(1);
+
+        // Objectifs par catégorie
+        foreach ($objectivesByCategory as $categoryUuid => $categoryObjectives) {
+            $firstObjective = $categoryObjectives->first();
+            $categoryName = $firstObjective->category->name ?? 'Autres objectifs';
+            $categoryAbbr = 'OI';
+
+            if (stripos($categoryName, 'collectif') !== false) {
+                $categoryAbbr = 'OC';
+            } elseif (stripos($categoryName, 'développement') !== false || stripos($categoryName, 'comportemental') !== false) {
+                $categoryAbbr = 'OD';
+            }
+
+            $section->addText($categoryName, 'headingStyle');
+            $section->addTextBreak(1);
+
+            // Tableau des objectifs
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => '000000',
+                'cellMargin' => 80,
+                'width' => 100 * 50
+            ]);
+
+            // En-tête
+            $table->addRow();
+            $table->addCell(800)->addText('', 'smallStyle');
+            $table->addCell(3700)->addText('Description de l\'objectif', ['bold' => true, 'size' => 10]);
+            $table->addCell(1100)->addText('Poids (P)', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell(2200)->addText('Commentaires de l\'évalué', ['bold' => true, 'size' => 10]);
+            $table->addCell(2200)->addText('Commentaires de l\'évaluateur', ['bold' => true, 'size' => 10]);
+            $table->addCell(0)->addText('Note', ['bold' => true, 'size' => 10]);
+
+            // Objectifs
+            $categoryTotal = 0;
+            $index = 1;
+            foreach ($categoryObjectives as $obj) {
+                $table->addRow();
+                $table->addCell(800)->addText($categoryAbbr . ' ' . $index++, 'smallStyle');
+                $cell = $table->addCell(3700);
+                $cell->addText($obj->title, ['bold' => true, 'size' => 10]);
+                if ($obj->description) {
+                    $cell->addText($obj->description, ['size' => 9, 'color' => '333333']);
+                }
+                $table->addCell(1100)->addText($obj->weight . '%', 'smallStyle', ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell(2200)->addText('', 'smallStyle');
+                $table->addCell(2200)->addText('', 'smallStyle');
+                $table->addCell(0)->addText('', 'smallStyle');
+                $categoryTotal += $obj->weight;
+            }
+
+            // Total
+            $table->addRow();
+            $table->addCell(800)->addText('', 'smallStyle');
+            $table->addCell(3700)->addText('Total', ['bold' => true, 'size' => 10]);
+            $table->addCell(1100)->addText($categoryTotal . '%', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell(2200)->addText('', 'smallStyle');
+            $table->addCell(2200)->addText('', 'smallStyle');
+            $table->addCell(0)->addText('', 'smallStyle');
+
+            $section->addTextBreak(1);
+        }
+
+        // Score individuel (si la campagne a dépassé la phase objectifs)
+        if (!in_array($campaign->status, ['draft', 'objective_in_progress'])) {
+            $section->addText('Score individuel : 100/100 - Répond à toutes les attentes', 'headingStyle');
+            $section->addTextBreak(1);
+
+            $scoreTable = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => '000000',
+                'cellMargin' => 80,
+                'width' => 100 * 50
+            ]);
+
+            $scoreTable->addRow();
+            $scoreTable->addCell(2500)->addText('Commentaire général de l\'évaluateur', ['bold' => true, 'size' => 11]);
+            $scoreTable->addCell(7500)->addText($userCampaign->supervisor_comment ?? 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', 'smallStyle');
+
+            $scoreTable->addRow();
+            $scoreTable->addCell(2500)->addText('Commentaire général de l\'évalué', ['bold' => true, 'size' => 11]);
+            $scoreTable->addCell(7500)->addText($userCampaign->employee_comment ?? 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX', 'smallStyle');
+        }
+
+        // Générer le fichier Word
+        $fileName = 'Fiche_Objectifs_' . str_replace(' ', '_', $userCampaign->user->full_name) . '_' . $campaign->year . '.docx';
+        $tempFile = storage_path('app/temp/' . $fileName);
+
+        if (!file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($tempFile);
+
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
+    }
+
+    public function wordMidterm(Campaign $campaign, UserCampaign $userCampaign)
+    {
+        $userCampaign->load(['user.entity', 'supervisor', 'objectives.category']);
+
+        // Grouper les objectifs par catégorie
+        $objectivesByCategory = $userCampaign->objectives->groupBy('objective_category_uuid');
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $section = $phpWord->addSection();
+
+        // Styles
+        $phpWord->addFontStyle('titleStyle', ['bold' => true, 'size' => 14]);
+        $phpWord->addFontStyle('headingStyle', ['bold' => true, 'size' => 12]);
+        $phpWord->addFontStyle('normalStyle', ['size' => 11]);
+        $phpWord->addFontStyle('smallStyle', ['size' => 10]);
+
+        // Titre
+        $section->addText(
+            'Fiche Mi-Parcours - Gestion de la performance ' . $campaign->year,
+            'titleStyle'
+        );
+        $section->addTextBreak(1);
+
+        // Informations employé
+        $nameParts = explode(' ', $userCampaign->user->full_name);
+        $lastName = strtoupper(array_pop($nameParts));
+        $firstName = implode(' ', $nameParts);
+
+        $section->addText('Nom : ' . $lastName, 'normalStyle');
+        $section->addText('Prénoms : ' . $firstName, 'normalStyle');
+        $section->addText('Fonction : ' . ($userCampaign->user->position ?? '-'), 'normalStyle');
+        $section->addText('Date d\'embauche : ' . ($userCampaign->user->hire_date ? \Carbon\Carbon::parse($userCampaign->user->hire_date)->format('d/m/Y') : '-'), 'normalStyle');
+        $section->addText('Direction / Service : ' . ($userCampaign->user->entity->name ?? '-'), 'normalStyle');
+        $section->addText('Étape de la campagne : ' . $campaign->status_label, 'normalStyle');
+        $section->addText('Nom de l\'évaluateur : ' . ($userCampaign->supervisor->full_name ?? '-'), 'normalStyle');
+        $section->addTextBreak(1);
+
+        // Objectifs par catégorie
+        foreach ($objectivesByCategory as $categoryUuid => $categoryObjectives) {
+            $firstObjective = $categoryObjectives->first();
+            $categoryName = $firstObjective->category->name ?? 'Autres objectifs';
+            $categoryAbbr = 'OI';
+
+            if (stripos($categoryName, 'collectif') !== false) {
+                $categoryAbbr = 'OC';
+            } elseif (stripos($categoryName, 'développement') !== false || stripos($categoryName, 'comportemental') !== false) {
+                $categoryAbbr = 'OD';
+            }
+
+            $section->addText($categoryName, 'headingStyle');
+            $section->addTextBreak(1);
+
+            // Tableau des objectifs
+            $table = $section->addTable([
+                'borderSize' => 6,
+                'borderColor' => '000000',
+                'cellMargin' => 80,
+                'width' => 100 * 50
+            ]);
+
+            // En-tête
+            $table->addRow();
+            $table->addCell(800)->addText('', 'smallStyle');
+            $table->addCell(3700)->addText('Description de l\'objectif', ['bold' => true, 'size' => 10]);
+            $table->addCell(1100)->addText('Poids (P)', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell(2200)->addText('Avancement mi-parcours', ['bold' => true, 'size' => 10]);
+            $table->addCell(2200)->addText('Commentaires', ['bold' => true, 'size' => 10]);
+            $table->addCell(0)->addText('Note', ['bold' => true, 'size' => 10]);
+
+            // Objectifs
+            $categoryTotal = 0;
+            $index = 1;
+            foreach ($categoryObjectives as $obj) {
+                $table->addRow();
+                $table->addCell(800)->addText($categoryAbbr . ' ' . $index++, 'smallStyle');
+                $cell = $table->addCell(3700);
+                $cell->addText($obj->title, ['bold' => true, 'size' => 10]);
+                if ($obj->description) {
+                    $cell->addText($obj->description, ['size' => 9, 'color' => '333333']);
+                }
+                $table->addCell(1100)->addText($obj->weight . '%', 'smallStyle', ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+                $table->addCell(2200)->addText('', 'smallStyle');
+                $table->addCell(2200)->addText('', 'smallStyle');
+                $table->addCell(0)->addText('', 'smallStyle');
+                $categoryTotal += $obj->weight;
+            }
+
+            // Total
+            $table->addRow();
+            $table->addCell(800)->addText('', 'smallStyle');
+            $table->addCell(3700)->addText('Total', ['bold' => true, 'size' => 10]);
+            $table->addCell(1100)->addText($categoryTotal . '%', ['bold' => true, 'size' => 10], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
+            $table->addCell(2200)->addText('', 'smallStyle');
+            $table->addCell(2200)->addText('', 'smallStyle');
+            $table->addCell(0)->addText('', 'smallStyle');
+
+            $section->addTextBreak(1);
+        }
+
+        // Section commentaires mi-parcours
+        $section->addText('Commentaires Mi-Parcours', 'headingStyle');
+        $section->addTextBreak(1);
+
+        $commentTable = $section->addTable([
+            'borderSize' => 6,
+            'borderColor' => '000000',
+            'cellMargin' => 80,
+            'width' => 100 * 50
+        ]);
+
+        $commentTable->addRow();
+        $commentTable->addCell(2500)->addText('Commentaire du supérieur', ['bold' => true, 'size' => 11]);
+        $commentTable->addCell(7500)->addText($userCampaign->midterm_supervisor_comment ?? '', 'smallStyle');
+
+        $commentTable->addRow();
+        $commentTable->addCell(2500)->addText('Commentaire de l\'évalué', ['bold' => true, 'size' => 11]);
+        $commentTable->addCell(7500)->addText($userCampaign->midterm_employee_comment ?? '', 'smallStyle');
+
+        // Générer le fichier Word
+        $fileName = 'Fiche_MiParcours_' . str_replace(' ', '_', $userCampaign->user->full_name) . '_' . $campaign->year . '.docx';
+        $tempFile = storage_path('app/temp/' . $fileName);
+
+        if (!file_exists(storage_path('app/temp'))) {
+            mkdir(storage_path('app/temp'), 0755, true);
+        }
+
+        $objWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $objWriter->save($tempFile);
+
+        return response()->download($tempFile, $fileName)->deleteFileAfterSend(true);
     }
 
     public function skipPhase(Request $request, Campaign $campaign, UserCampaign $userCampaign)

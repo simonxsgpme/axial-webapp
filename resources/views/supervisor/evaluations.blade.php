@@ -4,9 +4,9 @@
 
 @section('styles')
 <style>
-    .subordinate-card { cursor: pointer; transition: all 0.2s; border-left: 3px solid transparent; }
-    .subordinate-card:hover { border-left-color: var(--bs-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .subordinate-card.active { border-left-color: var(--bs-primary); background-color: rgba(var(--bs-primary-rgb), 0.03); }
+    .subordinate-card { cursor: pointer; transition: all 0.2s; }
+    .subordinate-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-left: 3px solid var(--bs-primary); }
+    .subordinate-card.active { background-color: rgba(var(--bs-primary-rgb), 0.03); border-left: 3px solid var(--bs-primary); }
     .obj-eval-card { border: 1px solid var(--bs-border-color); border-radius: var(--bs-border-radius); padding: 15px; margin-bottom: 12px; transition: all 0.2s; }
     .obj-eval-card.scored { border-left: 3px solid var(--bs-success); }
     .obj-eval-card.unscored { border-left: 3px solid var(--bs-secondary); }
@@ -43,8 +43,8 @@
             <div class="card">
                 <div class="card-body text-center py-5">
                     <i class="fi fi-rr-chart-histogram fs-1 d-block mb-3 text-muted"></i>
-                    <h5 class="text-muted">Aucune campagne en phase d'évaluation</h5>
-                    <p class="text-muted mb-0">La phase d'évaluation n'a pas encore été démarrée.</p>
+                    <h5 class="text-muted">Aucune campagne active</h5>
+                    <p class="text-muted mb-0">Aucune campagne n'est actuellement en cours.</p>
                 </div>
             </div>
         @elseif($subordinates->count() === 0)
@@ -121,8 +121,15 @@
                                     </div>
                                     <div class="d-flex gap-2 align-items-center">
                                         <span class="badge" id="subEvalStatus"></span>
+                                        <button type="button" class="btn btn-outline-success btn-sm waves-effect waves-light" id="btnUploadMidterm" style="display:none;" onclick="document.getElementById('midtermFileInput').click()">
+                                            <i class="fi fi-rr-upload me-1"></i> Importer
+                                        </button>
+                                        <input type="file" id="midtermFileInput" accept=".pdf" style="display:none;" onchange="uploadMidtermFile(event)">
+                                        <button type="button" class="btn btn-outline-primary btn-sm waves-effect waves-light" id="btnDownloadMidterm" style="display:none;" onclick="downloadMidtermFile()">
+                                            <i class="fi fi-rr-download me-1"></i> Télécharger
+                                        </button>
                                         <button type="button" class="btn btn-primary btn-sm waves-effect waves-light" id="btnSubmitEval" style="display:none;" onclick="submitEvaluation()">
-                                            <i class="fi fi-rr-paper-plane me-1"></i> Soumettre à l'employé
+                                            <i class="fi fi-rr-paper-plane me-1"></i> Soumettre au collaborateur
                                         </button>
                                     </div>
                                 </div>
@@ -151,12 +158,8 @@
                         </div>
 
                         {{-- Onglets --}}
-                        <ul class="nav nav-tabs mb-3" role="tablist">
-                            <li class="nav-item">
-                                <a class="nav-link active" data-bs-toggle="tab" href="#tabEvalObjectives" role="tab">
-                                    <i class="fi fi-rr-bullseye me-1"></i> Objectifs <span class="badge bg-primary ms-1" id="tabEvalObjCount">0</span>
-                                </a>
-                            </li>
+                        <ul class="nav nav-tabs mb-3" role="tablist" id="categoryTabs">
+                            {{-- Les onglets de catégories seront générés dynamiquement --}}
                             <li class="nav-item">
                                 <a class="nav-link" data-bs-toggle="tab" href="#tabEvalTimeline" role="tab">
                                     <i class="fi fi-rr-time-past me-1"></i> Historique
@@ -164,10 +167,8 @@
                             </li>
                         </ul>
 
-                        <div class="tab-content">
-                            <div class="tab-pane fade show active" id="tabEvalObjectives" role="tabpanel">
-                                <div id="evalObjectivesList"></div>
-                            </div>
+                        <div class="tab-content" id="categoryTabsContent">
+                            {{-- Le contenu des onglets sera généré dynamiquement --}}
                             <div class="tab-pane fade" id="tabEvalTimeline" role="tabpanel">
                                 <div class="card">
                                     <div class="card-body" id="evalTimelineContent"></div>
@@ -251,15 +252,215 @@
         statusEl.className = 'badge bg-' + (statusColors[uc.evaluation_status] || 'secondary') + '-subtle text-' + (statusColors[uc.evaluation_status] || 'secondary');
         statusEl.textContent = statusLabels[uc.evaluation_status] || uc.evaluation_status;
 
+        // Afficher les boutons mi-parcours si campagne en phase midterm_in_progress
+        let campaignStatus = '{{ $campaign->status ?? "" }}';
+        let isMidterm = campaignStatus === 'midterm_in_progress';
+        document.getElementById('btnUploadMidterm').style.display = isMidterm ? '' : 'none';
+        document.getElementById('btnDownloadMidterm').style.display = isMidterm ? '' : 'none';
+
         // Bouton soumettre visible si supervisor_draft ou returned_to_supervisor
         let canSubmit = ['supervisor_draft', 'returned_to_supervisor'].includes(uc.evaluation_status);
         document.getElementById('btnSubmitEval').style.display = canSubmit ? '' : 'none';
 
-        document.getElementById('tabEvalObjCount').textContent = uc.objectives ? uc.objectives.length : 0;
-
         updateRatingDisplay(uc.rating);
-        renderEvalObjectives(uc.objectives || [], uc.evaluation_status);
+        renderCategoryTabs(uc.objectives || [], uc.evaluation_status);
         renderEvalTimeline(uc.evaluation_decisions || []);
+    }
+
+    function uploadMidtermFile(event) {
+        let file = event.target.files[0];
+        if (!file) return;
+
+        if (file.type !== 'application/pdf') {
+            SendError('Veuillez sélectionner un fichier PDF.');
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+            SendError('Le fichier ne doit pas dépasser 10 Mo.');
+            return;
+        }
+
+        let formData = new FormData();
+        formData.append('midterm_file', file);
+
+        loader();
+        $.ajax({
+            url: '/supervisor/evaluations/' + currentUcData.uuid + '/upload-midterm',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                loader('hide');
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Fichier importé',
+                        text: data.message,
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    // Mettre à jour les données du collaborateur
+                    currentUcData.midterm_file = data.file_path;
+                } else {
+                    SendError(data.message);
+                }
+            },
+            error: function(data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue lors de l\'upload.');
+            }
+        });
+
+        // Réinitialiser l'input
+        event.target.value = '';
+    }
+
+    function downloadMidtermFile() {
+        if (currentUcData) {
+            window.location.href = '/supervisor/evaluations/' + currentUcData.uuid + '/download-midterm';
+        }
+    }
+
+    function renderCategoryTabs(objectives, evalStatus) {
+        let campaignStatus = '{{ $campaign->status ?? "" }}';
+        let isMidterm = campaignStatus === 'midterm_in_progress';
+
+        // Regrouper les objectifs par catégorie
+        let categoriesData = {};
+        objectives.forEach(obj => {
+            let catUuid = obj.objective_category_uuid;
+            if (!categoriesData[catUuid]) {
+                categoriesData[catUuid] = {
+                    category: obj.category,
+                    objectives: []
+                };
+            }
+            categoriesData[catUuid].objectives.push(obj);
+        });
+
+        // Générer les onglets
+        let tabsHtml = '';
+        let contentHtml = '';
+        let isFirst = true;
+
+        Object.keys(categoriesData).forEach(catUuid => {
+            let catData = categoriesData[catUuid];
+            let catName = catData.category ? catData.category.name : 'Sans catégorie';
+            let catDisplayName = catData.category ? catData.category.description : 'Sans catégorie';
+            let objCount = catData.objectives.length;
+            let tabId = 'tabCat-' + catUuid;
+
+            // Onglet
+            tabsHtml += `
+                <li class="nav-item">
+                    <a class="nav-link ${isFirst ? 'active' : ''}" data-bs-toggle="tab" href="#${tabId}" role="tab">
+                        <i class="fi fi-rr-bullseye me-1"></i> ${catName} <span class="badge bg-primary ms-1">${objCount}</span>
+                    </a>
+                </li>`;
+
+            // Contenu
+            contentHtml += `
+                <div class="tab-pane fade ${isFirst ? 'show active' : ''}" id="${tabId}" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">${catDisplayName}</h6>
+                        </div>
+                    </div>
+                    ${renderEvalObjectivesForCategory(catData.objectives, evalStatus, isMidterm)}
+                </div>`;
+
+            isFirst = false;
+        });
+
+        // Si aucun objectif
+        if (objectives.length === 0) {
+            tabsHtml = `
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#tabEmpty" role="tab">
+                        <i class="fi fi-rr-bullseye me-1"></i> Objectifs <span class="badge bg-primary ms-1">0</span>
+                    </a>
+                </li>`;
+            contentHtml = `
+                <div class="tab-pane fade show active" id="tabEmpty" role="tabpanel">
+                    <div class="card"><div class="card-body text-center py-4 text-muted">Aucun objectif.</div></div>
+                </div>`;
+        }
+
+        // Ajouter l'onglet Historique à la fin
+        tabsHtml += `
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#tabEvalTimeline" role="tab">
+                    <i class="fi fi-rr-time-past me-1"></i> Historique
+                </a>
+            </li>`;
+
+        // Insérer les onglets et le contenu
+        let categoryTabsEl = document.getElementById('categoryTabs');
+        let historyTab = categoryTabsEl.querySelector('li:last-child');
+        categoryTabsEl.innerHTML = tabsHtml;
+
+        let contentEl = document.getElementById('categoryTabsContent');
+        let historyContent = contentEl.querySelector('#tabEvalTimeline');
+        contentEl.innerHTML = contentHtml;
+        if (historyContent) {
+            contentEl.appendChild(historyContent);
+        }
+    }
+
+    function renderEvalObjectivesForCategory(objectives, evalStatus, isMidterm) {
+        let html = '';
+        if (objectives.length === 0) {
+            html = '<div class="card"><div class="card-body text-center py-4 text-muted">Aucun objectif dans cette catégorie.</div></div>';
+        } else {
+            let canScore = ['pending', 'supervisor_draft', 'returned_to_supervisor'].includes(evalStatus);
+            objectives.forEach(obj => {
+                let hasScore = obj.score !== null && obj.score !== undefined;
+                let scoreClass = hasScore ? 'scored' : 'unscored';
+                let commentsCount = obj.evaluation_comments ? obj.evaluation_comments.length : 0;
+                let noteObtenue = hasScore ? obj.score : '-';
+
+                let scoreHtml = '';
+                if (canScore && !isMidterm) {
+                    scoreHtml = `
+                        <div class="d-flex flex-wrap gap-2 mt-3 align-items-center">
+                            <div class="input-group input-group-sm" style="max-width: 320px;">
+                                <span class="input-group-text">Note obtenue</span>
+                                <input type="number" class="form-control" id="score-${obj.uuid}" min="0" max="${obj.weight}" step="0.5" value="${hasScore ? obj.score : ''}" placeholder="0-${obj.weight}">
+                                <span class="input-group-text">/ ${obj.weight}</span>
+                                <button type="button" class="btn btn-primary waves-effect" onclick="saveScore('${obj.uuid}')">
+                                    <i class="fi fi-rr-check"></i>
+                                </button>
+                            </div>
+                        </div>`;
+                } else if (!isMidterm) {
+                    scoreHtml = `
+                        <div class="d-flex gap-2 mt-2 align-items-center">
+                            ${hasScore ? `<span class="badge bg-primary-subtle text-primary">Note: ${obj.score} / ${obj.weight}</span>` : '<span class="badge bg-secondary-subtle text-secondary">Non noté</span>'}
+                        </div>`;
+                }
+
+                html += `
+                    <div class="obj-eval-card ${scoreClass}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-semibold">${isMidterm ? `<span class="badge bg-primary-subtle text-primary me-2">${obj.weight}%</span>` : ''}${obj.title}</h6>
+                                ${obj.description ? `<p class="mb-0" style="font-size: 13px; color: var(--bs-secondary-color);">${obj.description}</p>` : ''}
+                                ${!isMidterm ? `<small class="text-muted mt-2 d-block">Poids: ${obj.weight}%</small>` : ''}
+                            </div>
+                            ${!isMidterm ? `
+                            <div class="text-end">
+                                <small class="text-muted d-block" style="font-size: 11px;">Note obtenue</small>
+                                <span class="fw-bold">${noteObtenue}%</span>
+                            </div>` : ''}
+                        </div>
+                        ${scoreHtml}
+                    </div>`;
+            });
+        }
+        return html;
     }
 
     function updateRatingDisplay(rating) {
@@ -353,7 +554,7 @@
         let html = '<div class="decision-timeline">';
         decisions.forEach(d => {
             let colors = { submitted_to_employee: 'primary', returned_to_supervisor: 'warning', validated: 'success' };
-            let labels = { submitted_to_employee: 'Soumis à l\'employé', returned_to_supervisor: 'Retourné au supérieur', validated: 'Évaluation validée' };
+            let labels = { submitted_to_employee: 'Soumis au collaborateur', returned_to_supervisor: 'Retourné au supérieur', validated: 'Évaluation validée' };
             html += `
                 <div class="decision-timeline-item">
                     <div class="timeline-dot bg-${colors[d.action] || 'secondary'}"></div>
@@ -398,7 +599,7 @@
     function submitEvaluation() {
         Swal.fire({
             icon: 'question', title: 'Soumettre l\'évaluation ?',
-            text: 'L\'employé pourra consulter ses notes et ajouter des commentaires.',
+            text: 'Le collaborateur pourra consulter ses notes et ajouter des commentaires.',
             input: 'textarea', inputLabel: 'Commentaire (optionnel)', inputPlaceholder: 'Ajouter un commentaire...',
             showDenyButton: true, confirmButtonText: 'Soumettre', denyButtonText: 'Annuler',
         }).then((result) => {
