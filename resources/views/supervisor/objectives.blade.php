@@ -204,18 +204,18 @@
                 <form id="editObjectiveForm" onsubmit="submitEditObjective(event)">
                     <input type="hidden" id="editObjUuid" value="">
                     <div class="row">
-                        <div class="col-md-5 mb-3">
-                            <label for="editObjTitle" class="form-label">Titre <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="editObjTitle" name="title" required>
-                        </div>
                         <div class="col-md-4 mb-3">
                             <label for="editObjCategory" class="form-label">Catégorie <span class="text-danger">*</span></label>
-                            <select class="form-select" id="editObjCategory" name="objective_category_uuid" required>
+                            <select class="form-select" id="editObjCategory" name="objective_category_uuid" required onchange="handleCategoryChange(this, 'editObjTitle', 'editObjTitleWrapper')">
                                 <option value="">Sélectionner...</option>
                                 @foreach($categories as $cat)
-                                <option value="{{ $cat->uuid }}">{{ $cat->name }}</option>
+                                <option value="{{ $cat->uuid }}" data-name="{{ $cat->name }}">{{ $cat->name }}</option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="col-md-5 mb-3" id="editObjTitleWrapper">
+                            <label class="form-label">Intitulé Objectif <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="editObjTitle" name="title" required>
                         </div>
                         <div class="col-md-3 mb-3">
                             <label for="editObjWeight" class="form-label">Pondération (%) <span class="text-danger">*</span></label>
@@ -708,6 +708,31 @@
         });
     }
 
+    const COMPORTEMENTAL_OPTIONS = ['Responsabilité', 'Intégrité', 'Engagement'];
+
+    function handleCategoryChange(selectEl, titleInputId, titleWrapperId, currentValue) {
+        let wrapper = document.getElementById(titleWrapperId);
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        let catName = selectedOption ? (selectedOption.getAttribute('data-name') || '').toLowerCase() : '';
+        let isComportemental = catName.includes('comportemental');
+        let existingInput = document.getElementById(titleInputId);
+        let existingSelect = document.getElementById(titleInputId + '_select');
+        if (isComportemental) {
+            if (existingInput) { existingInput.style.display = 'none'; existingInput.removeAttribute('required'); }
+            if (!existingSelect) {
+                let sel = document.createElement('select');
+                sel.className = 'form-select'; sel.id = titleInputId + '_select'; sel.name = 'title'; sel.required = true;
+                COMPORTEMENTAL_OPTIONS.forEach(opt => { let o = document.createElement('option'); o.value = opt; o.textContent = opt; sel.appendChild(o); });
+                wrapper.appendChild(sel);
+            } else { existingSelect.style.display = ''; existingSelect.required = true; }
+            if (currentValue) { let s = document.getElementById(titleInputId + '_select'); if (s) s.value = currentValue; }
+        } else {
+            if (existingInput) { existingInput.style.display = ''; existingInput.required = true; }
+            if (existingSelect) { existingSelect.style.display = 'none'; existingSelect.required = false; }
+            if (currentValue && existingInput) existingInput.value = currentValue;
+        }
+    }
+
     // Fonctions pour la modal de modification d'objectif
     function openEditModal(objUuid) {
         loader();
@@ -719,11 +744,10 @@
                 if (data.success) {
                     let obj = data.objective;
                     document.getElementById('editObjUuid').value = obj.uuid;
-                    document.getElementById('editObjTitle').value = obj.title;
                     document.getElementById('editObjCategory').value = obj.objective_category_uuid;
                     document.getElementById('editObjWeight').value = obj.weight || 0;
                     document.getElementById('editObjDescription').value = obj.description || '';
-                    
+                    handleCategoryChange(document.getElementById('editObjCategory'), 'editObjTitle', 'editObjTitleWrapper', obj.title);
                     let modal = new bootstrap.Modal(document.getElementById('editObjectiveModal'));
                     modal.show();
                 }

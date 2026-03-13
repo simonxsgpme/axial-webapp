@@ -7,30 +7,69 @@
     .podium-card {
         border-radius: var(--bs-border-radius-lg);
         text-align: center;
-        transition: transform 0.2s;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+        position: relative;
+        overflow: hidden;
     }
     .podium-card:hover {
-        transform: translateY(-4px);
+        transform: translateY(-6px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+    .podium-card.rank-1 {
+        border-color: #ffc107;
+        background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);
+    }
+    .podium-card.rank-2 {
+        border-color: #6c757d;
+        background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    }
+    .podium-card.rank-3 {
+        border-color: #cd7f32;
+        background: linear-gradient(135deg, #fff5e6 0%, #ffffff 100%);
     }
     .podium-rank {
-        width: 32px;
-        height: 32px;
+        width: 48px;
+        height: 48px;
         border-radius: 50%;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         font-weight: 700;
-        font-size: 14px;
+        font-size: 18px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        position: relative;
+    }
+    .podium-rank.rank-1 {
+        background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        color: #856404;
+    }
+    .podium-rank.rank-2 {
+        background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+        color: #495057;
+    }
+    .podium-rank.rank-3 {
+        background: linear-gradient(135deg, #cd7f32 0%, #e6a76e 100%);
+        color: #fff;
     }
     .podium-avatar {
-        width: 72px;
-        height: 72px;
+        width: 80px;
+        height: 80px;
         border-radius: 50%;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 700;
+        border: 3px solid #fff;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .podium-trophy {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        opacity: 0.15;
     }
     .entity-avg-badge {
         font-size: 0.75rem;
@@ -60,7 +99,7 @@
         {{-- ===== SCORE GLOBAL (Donut) + PODIUM ===== --}}
         <div class="row g-3 mb-4">
             {{-- Score Global avec camembert --}}
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card h-100">
                     <div class="card-header">
                         <h6 class="card-title mb-0"><i class="fi fi-rr-chart-pie me-1"></i> Score global</h6>
@@ -70,18 +109,20 @@
                         <div class="text-center mt-2">
                             @php
                                 $level = match(true) {
-                                    $globalScore < 20 => 'Insuffisant',
-                                    $globalScore < 40 => 'Passable',
-                                    $globalScore < 60 => 'Satisfaisant',
-                                    $globalScore < 80 => 'Bien',
-                                    default => 'Excellent',
+                                    $globalScore < 50  => 'Ne répond pas aux attentes',
+                                    $globalScore < 80  => 'Répond à quelques attentes',
+                                    $globalScore < 100 => 'Répond à la plupart des attentes',
+                                    $globalScore == 100 => 'Répond à toutes les attentes',
+                                    $globalScore > 100 => 'Au-delà des attentes',
+                                    default => 'Répond à toutes les attentes',
                                 };
                                 $globalColor = match(true) {
-                                    $globalScore < 20 => 'danger',
-                                    $globalScore < 40 => 'warning',
-                                    $globalScore < 60 => 'info',
-                                    $globalScore < 80 => 'primary',
-                                    default => 'success',
+                                    $globalScore < 50  => 'danger',
+                                    $globalScore < 80  => 'warning',
+                                    $globalScore < 100 => 'info',
+                                    $globalScore == 100 => 'primary',
+                                    $globalScore > 100 => 'success',
+                                    default => 'primary',
                                 };
                             @endphp
                             <span class="badge bg-{{ $globalColor }}-subtle text-{{ $globalColor }} fs-6">{{ $level }}</span>
@@ -94,7 +135,7 @@
                             </div>
                             <div>
                                 <div class="fs-5 fw-bold">{{ $validatedCount }}</div>
-                                <small class="text-muted">Validés</small>
+                                <small class="text-muted">Evalués</small>
                             </div>
                         </div>
                     </div>
@@ -104,28 +145,31 @@
             {{-- Podium: Top 3 --}}
             @foreach($podium as $index => $uc)
             @php
-                $rankColors = ['warning', 'secondary', 'info'];
+                $rankNum = $index + 1;
                 $rankLabels = ['1er', '2e', '3e'];
-                $color = $rankColors[$index] ?? 'secondary';
+                $trophyIcons = ['fi-rr-trophy-star', 'fi-rr-trophy', 'fi-rr-medal'];
                 $initials = strtoupper(substr($uc->user->first_name, 0, 1) . substr($uc->user->last_name, 0, 1));
                 $ratingVal = $uc->rating ?? 0;
             @endphp
-            <div class="col-md-{{ $podium->count() === 1 ? '8' : ($podium->count() === 2 ? '4' : '4') }}">
-                <div class="card podium-card h-100">
+            <div class="col-md-{{ $podium->count() === 1 ? '8' : ($podium->count() === 2 ? '4' : '3') }}">
+                <div class="card podium-card rank-{{ $rankNum }} h-100">
+                    <i class="fi {{ $trophyIcons[$index] }} podium-trophy"></i>
                     <div class="card-body p-4">
                         <div class="mb-3">
-                            <span class="podium-rank bg-{{ $color }}-subtle text-{{ $color }}">{{ $rankLabels[$index] }}</span>
+                            <span class="podium-rank rank-{{ $rankNum }}">{{ $rankNum }}</span>
                         </div>
                         <div class="podium-avatar bg-{{ $uc->rating_color }}-subtle text-{{ $uc->rating_color }} mx-auto mb-3">
                             {{ $initials }}
                         </div>
-                        <h6 class="fw-bold mb-0">{{ $uc->user->full_name }}</h6>
-                        <small class="text-muted d-block mb-1">{{ $uc->user->position ?? '' }}</small>
+                        <h6 class="fw-bold mb-1">{{ $uc->user->full_name }}</h6>
+                        <small class="text-muted d-block mb-1">{{ $uc->user->position ?? '-' }}</small>
                         @if($uc->user->entity)
-                        <small class="text-muted d-block mb-2">{{ $uc->user->entity->name }}</small>
+                        <small class="text-muted d-block mb-3" style="font-size: 0.8rem;">
+                            <i class="fi fi-rr-building" style="font-size: 10px;"></i> {{ $uc->user->entity->name }}
+                        </small>
                         @endif
-                        <div class="display-6 fw-bold text-{{ $uc->rating_color }} mb-1">{{ $ratingVal }}%</div>
-                        <span class="badge bg-{{ $uc->rating_color }}-subtle text-{{ $uc->rating_color }}">{{ $uc->rating_level ?? '-' }}</span>
+                        <div class="display-5 fw-bold text-{{ $uc->rating_color }} mb-2" style="line-height: 1;">{{ number_format($ratingVal, 1) }}<small style="font-size: 0.5em;">/100</small></div>
+                        <span class="badge bg-{{ $uc->rating_color }}-subtle text-{{ $uc->rating_color }} px-3 py-2">{{ $uc->rating_level ?? '-' }}</span>
                     </div>
                 </div>
             </div>
@@ -313,11 +357,11 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     function ratingColor(val) {
-        if (val < 20) return bsColors.danger;
-        if (val < 40) return bsColors.warning;
-        if (val < 60) return bsColors.info;
-        if (val < 80) return bsColors.primary;
-        return bsColors.success;
+        if (val > 100)      return bsColors.success;
+        if (val == 100)     return bsColors.primary;
+        if (val >= 80)      return bsColors.info;
+        if (val >= 50)      return bsColors.warning;
+        return bsColors.danger;
     }
 
     // Score global donut

@@ -2,6 +2,10 @@
 
 @section('title', $campaign->name)
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+@endpush
+
 @section('content')
 <div class="row">
     <div class="col-12">
@@ -141,10 +145,9 @@
             <div class="card-body">
                 @if($campaign->userCampaigns->count() > 0)
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle" id="participantsTable">
                         <thead>
                             <tr>
-                                <th>#</th>
                                 <th>Utilisateur</th>
                                 <th>Supérieur évaluateur</th>
                                 <th>Objectifs</th>
@@ -156,7 +159,6 @@
                         <tbody>
                             @foreach($campaign->userCampaigns as $index => $uc)
                             <tr>
-                                <td>{{ $index + 1 }}</td>
                                 <td>
                                     <div class="d-flex align-items-center gap-2">
                                         <div class="avatar avatar-sm">
@@ -407,6 +409,8 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
     function toggleSelectAll(el) {
         document.querySelectorAll('.user-checkbox').forEach(function(cb) {
@@ -547,7 +551,7 @@
                                 title: 'Attention',
                                 html: '<p>' + response.message + '</p>' +
                                       '<p class="mt-3"><strong>' + response.not_completed_count + ' participant(s)</strong> sur <strong>' + response.total_count + '</strong> n\'ont pas encore validé leurs objectifs.</p>' +
-                                      '<p class="text-danger mt-2">Si vous forcez la fin de cette phase, seuls les participants <strong>sans aucun objectif renseigné</strong> auront le statut <strong>"Non évalué"</strong>.</p>',
+                                      '<p class="text-danger mt-2">Si vous forcez la fin de cette phase, seuls les participants <strong>sans aucun objectif renseigné</strong> auront le statut <strong>"Pas d\'Objectif"</strong>.</p>',
                                 showCancelButton: true,
                                 confirmButtonText: 'Forcer la fin de cette phase',
                                 cancelButtonText: 'Retour',
@@ -580,6 +584,20 @@
                     }
                 });
             }
+        });
+    }
+
+    // DataTable participants
+    if ($('#participantsTable').length) {
+        $('#participantsTable').DataTable({
+            pageLength: 20,
+            order: [[0, 'asc']],
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/fr-FR.json'
+            },
+            columnDefs: [
+                { orderable: false, targets: [2, 3, 4, 5] }
+            ]
         });
     }
 </script>

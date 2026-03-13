@@ -72,7 +72,7 @@ class UserCampaign extends Model
             'submitted' => 'Soumis',
             'returned' => 'Retourné',
             'completed' => 'Terminé',
-            'not_evaluated' => 'Non évalué',
+            'not_evaluated' => 'Pas d\'Objectif',
             default => $this->objective_status,
         };
     }
@@ -119,11 +119,12 @@ class UserCampaign extends Model
     {
         if ($this->rating === null) return null;
         return match (true) {
-            $this->rating < 50 => 'Ne répond pas aux attentes',
-            $this->rating < 80 => 'Répond à quelques attentes',
+            $this->rating < 50  => 'Ne répond pas aux attentes',
+            $this->rating < 80  => 'Répond à quelques attentes',
             $this->rating < 100 => 'Répond à la plupart des attentes',
             $this->rating == 100 => 'Répond à toutes les attentes',
-            default => 'Au-delà des attentes',
+            $this->rating > 100 => 'Au-delà des attentes',
+            default => 'Répond à toutes les attentes',
         };
     }
 
@@ -131,11 +132,12 @@ class UserCampaign extends Model
     {
         if ($this->rating === null) return 'secondary';
         return match (true) {
-            $this->rating < 50 => 'danger',
-            $this->rating < 80 => 'warning',
+            $this->rating < 50  => 'danger',
+            $this->rating < 80  => 'warning',
             $this->rating < 100 => 'info',
             $this->rating == 100 => 'primary',
-            default => 'success',
+            $this->rating > 100 => 'success',
+            default => 'primary',
         };
     }
 }

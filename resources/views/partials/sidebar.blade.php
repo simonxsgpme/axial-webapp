@@ -1,4 +1,4 @@
-<aside class="app-sidebar" id="appMenubar">
+<aside class="app-sidebar" id="appMenubar" style="">
     <div class="sidebar-header">
         <a href="{{ route('dashboard') }}" class="sidebar-brand">
             <img src="{{ asset('assets/images/logo.svg') }}" alt="AXIAL" class="logo-lg" height="28">

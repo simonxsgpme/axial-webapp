@@ -183,9 +183,14 @@
                             <div class="card-header d-flex justify-content-between align-items-center">
                                 <h6 class="card-title mb-0" id="categoryTitle"><i class="fi fi-rr-bullseye me-1"></i> Tous les objectifs</h6>
                                 @if($canEdit)
-                                <button type="button" class="btn btn-primary btn-sm waves-effect waves-light" onclick="showAddForm()">
-                                    <i class="fi fi-rr-plus me-1"></i> Nouvel objectif
-                                </button>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-primary btn-sm waves-effect waves-light" onclick="showAddForm()">
+                                        <i class="fi fi-rr-plus me-1"></i> Nouvel objectif
+                                    </button>
+                                    <button type="button" class="btn btn-success btn-sm waves-effect waves-light" onclick="showImportModal()">
+                                        <i class="fi fi-rr-upload me-1"></i> Importer
+                                    </button>
+                                </div>
                                 @endif
                             </div>
                             <div class="card-body" id="objectivesList">
@@ -279,23 +284,22 @@
                                     <input type="hidden" id="formObjectiveUuid" value="">
                                     <input type="hidden" name="user_campaign_uuid" value="{{ $userCampaign->uuid }}">
                                     <div class="row">
-                                        <div class="col-md-5 mb-3">
-                                            <label for="formTitle_input" class="form-label">Titre <span class="text-danger">*</span></label>
-                                            <input type="text" class="form-control" id="formTitle_input" name="title" required>
-                                        </div>
                                         <div class="col-md-4 mb-3">
                                             <label for="formCategory" class="form-label">Catégorie <span class="text-danger">*</span></label>
-                                            <select class="form-select" id="formCategory" name="objective_category_uuid" required>
+                                            <select class="form-select" id="formCategory" name="objective_category_uuid" required onchange="handleCategoryChange(this, 'formTitle_input', 'formTitleWrapper')">
                                                 <option value="">Sélectionner...</option>
                                                 @foreach($categories as $cat)
-                                                <option value="{{ $cat->uuid }}">{{ $cat->name }}</option>
+                                                <option value="{{ $cat->uuid }}" data-name="{{ $cat->name }}">{{ $cat->name }}</option>
                                                 @endforeach
                                             </select>
+                                        </div>
+                                        <div class="col-md-5 mb-3" id="formTitleWrapper">
+                                            <label class="form-label">Intitulé Objectif <span class="text-danger">*</span></label>
+                                            <input type="text" class="form-control" id="formTitle_input" name="title" required>
                                         </div>
                                         <div class="col-md-3 mb-3">
                                             <label for="formWeight" class="form-label">Pondération (%) <span class="text-danger">*</span></label>
                                             <input type="number" class="form-control" id="formWeight" name="weight" min="0" max="100" value="0" required>
-                                            {{-- <small class="text-muted" id="weightHelper">Total actuel : {{ $totalWeight }}%</small> --}}
                                         </div>
                                         <div class="col-12 mb-3">
                                             <label for="formDescription" class="form-label">Description</label>
@@ -364,6 +368,9 @@
         document.getElementById('formWeight').value = 0;
         if (currentCategory !== 'all') {
             document.getElementById('formCategory').value = currentCategory;
+            handleCategoryChange(document.getElementById('formCategory'), 'formTitle_input', 'formTitleWrapper');
+        } else {
+            handleCategoryChange(document.getElementById('formCategory'), 'formTitle_input', 'formTitleWrapper');
         }
     }
 
@@ -387,10 +394,10 @@
                     document.getElementById('formTitle').innerHTML = '<i class="fi fi-rr-pencil me-1"></i> Modifier l\'objectif';
                     document.getElementById('formSubmitLabel').textContent = 'Mettre à jour';
                     document.getElementById('formObjectiveUuid').value = obj.uuid;
-                    document.getElementById('formTitle_input').value = obj.title;
                     document.getElementById('formCategory').value = obj.objective_category_uuid;
                     document.getElementById('formWeight').value = obj.weight || 0;
                     document.getElementById('formDescription').value = obj.description || '';
+                    handleCategoryChange(document.getElementById('formCategory'), 'formTitle_input', 'formTitleWrapper', obj.title);
                 }
             },
             error: function(data) {
@@ -404,6 +411,47 @@
         let fp = document.getElementById('formPanel');
         if (fp) fp.classList.remove('show');
         document.getElementById('listPanel').style.display = '';
+    }
+
+    const COMPORTEMENTAL_OPTIONS = ['Responsabilité', 'Intégrité', 'Engagement'];
+
+    function handleCategoryChange(selectEl, titleInputId, titleWrapperId, currentValue) {
+        let wrapper = document.getElementById(titleWrapperId);
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        let catName = selectedOption ? (selectedOption.getAttribute('data-name') || '').toLowerCase() : '';
+        let isComportemental = catName.includes('comportemental');
+
+        let existingInput = document.getElementById(titleInputId);
+        let existingSelect = document.getElementById(titleInputId + '_select');
+
+        if (isComportemental) {
+            if (existingInput) existingInput.style.display = 'none';
+            if (existingInput) existingInput.removeAttribute('required');
+            if (!existingSelect) {
+                let sel = document.createElement('select');
+                sel.className = 'form-select';
+                sel.id = titleInputId + '_select';
+                sel.name = 'title';
+                sel.required = true;
+                COMPORTEMENTAL_OPTIONS.forEach(opt => {
+                    let o = document.createElement('option');
+                    o.value = opt; o.textContent = opt;
+                    sel.appendChild(o);
+                });
+                wrapper.appendChild(sel);
+            } else {
+                existingSelect.style.display = '';
+                existingSelect.required = true;
+            }
+            if (currentValue) {
+                let sel2 = document.getElementById(titleInputId + '_select');
+                if (sel2) sel2.value = currentValue;
+            }
+        } else {
+            if (existingInput) { existingInput.style.display = ''; existingInput.required = true; }
+            if (existingSelect) { existingSelect.style.display = 'none'; existingSelect.required = false; }
+            if (currentValue && existingInput) existingInput.value = currentValue;
+        }
     }
 
     function buildObjectiveCard(obj) {
@@ -564,7 +612,6 @@
                 <div>
                     <h5 class="fw-bold mb-1">${obj.title}</h5>
                     ${statusBadge}
-                    <span class="badge bg-primary-subtle text-primary ms-1">${obj.category ? obj.category.name : ''}</span>
                 </div>
                 ${actionsHtml}
             </div>
@@ -573,7 +620,7 @@
                 <table class="table table-borderless mb-0">
                     <tbody>
                         ${obj.description ? `<tr><td class="text-muted fw-semibold" style="width:140px">Description</td><td>${obj.description}</td></tr>` : ''}
-                        <tr><td class="text-muted fw-semibold" style="width:140px">Catégorie</td><td>${obj.category ? obj.category.name + ' (' + obj.category.percentage + '%)' : ''}</td></tr>
+                        <tr><td class="text-muted fw-semibold" style="width:140px">Catégorie</td><td>${obj.category ? obj.category.name : ''}</td></tr>
                         ${obj.weight > 0 ? `<tr><td class="text-muted fw-semibold" style="width:140px">Pondération</td><td>${obj.weight}%</td></tr>` : ''}
                         <tr><td class="text-muted fw-semibold">Créé le</td><td>${new Date(obj.created_at).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'})}</td></tr>
                     </tbody>
@@ -711,6 +758,78 @@
                     },
                     error: function(data) { loader('hide'); SendError(data.responseJSON?.message ?? 'Une erreur est survenue'); }
                 });
+            }
+        });
+    }
+
+    function showImportModal() {
+        Swal.fire({
+            title: 'Importer des objectifs',
+            html: `
+                <div class="text-start">
+                    <p class="mb-3">Téléchargez le modèle Excel, remplissez-le avec vos objectifs, puis importez-le.</p>
+                    <div class="mb-3">
+                        <a href="{{ route('objectives.import.template') }}" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="fi fi-rr-download me-1"></i> Télécharger le modèle Excel
+                        </a>
+                    </div>
+                    <div class="mb-2">
+                        <label for="importFile" class="form-label">Fichier à importer</label>
+                        <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls,.csv">
+                        <small class="text-muted">Formats acceptés : Excel (.xlsx, .xls) ou CSV</small>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Importer',
+            cancelButtonText: 'Annuler',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const fileInput = document.getElementById('importFile');
+                if (!fileInput.files.length) {
+                    Swal.showValidationMessage('Veuillez sélectionner un fichier');
+                    return false;
+                }
+                return fileInput.files[0];
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                importObjectivesFile(result.value);
+            }
+        });
+    }
+
+    function importObjectivesFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        loader();
+        $.ajax({
+            url: '{{ route('objectives.import') }}',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+            success: function(data) {
+                loader('hide');
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Succès',
+                        text: data.message,
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    SendError(data.message);
+                }
+            },
+            error: function(data) {
+                loader('hide');
+                SendError(data.responseJSON?.message ?? 'Une erreur est survenue lors de l\'import');
             }
         });
     }

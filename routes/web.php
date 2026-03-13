@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\ChangePasswordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CampaignController;
 use App\Http\Controllers\EntityController;
@@ -36,20 +35,17 @@ Route::get('/', function () {
 // Routes d'authentification (accessibles uniquement aux invités)
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'login']);
+    Route::post('/login/send-otp', [LoginController::class, 'sendOtp'])->name('login.send-otp');
+    Route::get('/login/verify', [LoginController::class, 'showVerifyForm'])->name('login.verify');
+    Route::post('/login/verify', [LoginController::class, 'verifyOtp'])->name('login.verify.submit');
 });
 
 // Déconnexion (accessible uniquement aux authentifiés)
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->middleware('auth');
 
-// Changement de mot de passe obligatoire (première connexion)
-Route::middleware('auth')->group(function () {
-    Route::get('/password/change', [ChangePasswordController::class, 'show'])->name('password.change');
-    Route::post('/password/change', [ChangePasswordController::class, 'update'])->name('password.change.update');
-});
 
 // Routes protégées par authentification
-Route::middleware(['auth', 'force.password.change'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/data', [DashboardController::class, 'data'])->name('dashboard.data');
 
@@ -103,11 +99,13 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     // Objectifs (vue employé)
     Route::get('/objectives', [ObjectiveController::class, 'index'])->name('objectives.index');
     Route::post('/objectives', [ObjectiveController::class, 'store'])->name('objectives.store');
+    Route::post('/objectives/submit', [ObjectiveController::class, 'submit'])->name('objectives.submit');
+    Route::post('/objectives/import', [ObjectiveController::class, 'importExcel'])->name('objectives.import');
+    Route::post('/objectives/import/{userCampaign}', [ObjectiveController::class, 'importExcelForParticipant'])->name('objectives.import.participant');
+    Route::get('/objectives/import/template', [ObjectiveController::class, 'downloadTemplate'])->name('objectives.import.template');
     Route::get('/objectives/{objective}', [ObjectiveController::class, 'show'])->name('objectives.show');
     Route::put('/objectives/{objective}', [ObjectiveController::class, 'update'])->name('objectives.update');
     Route::delete('/objectives/{objective}', [ObjectiveController::class, 'destroy'])->name('objectives.destroy');
-
-    Route::post('/objectives/submit', [ObjectiveController::class, 'submit'])->name('objectives.submit');
 
     // Commentaires d'objectifs
     Route::post('/objectives/{objective}/comments', [ObjectiveCommentController::class, 'store'])->name('objectives.comments.store');

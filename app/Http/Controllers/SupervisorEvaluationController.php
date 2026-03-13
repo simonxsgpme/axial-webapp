@@ -280,7 +280,45 @@ class SupervisorEvaluationController extends Controller
         $objectivesByCategory = $userCampaign->objectives->groupBy('objective_category_uuid');
 
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
-        $section = $phpWord->addSection();
+
+        $sectionStyle = [
+            'marginTop'    => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2.5),
+            'marginBottom' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2.5),
+            'marginLeft'   => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2),
+            'marginRight'  => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2),
+            'headerHeight' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(1.5),
+            'footerHeight' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(1.5),
+        ];
+        $section = $phpWord->addSection($sectionStyle);
+
+        // Filigrane
+        $logoPath      = public_path('assets/images/logo.png');
+        $filigramePath = public_path('assets/images/filigrane.png');
+
+        if (file_exists($filigramePath)) {
+            $firstHeader = $section->addHeader(\PhpOffice\PhpWord\Element\Header::FIRST);
+            $firstHeader->addWatermark($filigramePath, ['marginTop' => 3000, 'marginLeft' => 3000]);
+            $defaultHeader = $section->addHeader();
+            $defaultHeader->addWatermark($filigramePath, ['marginTop' => 3000, 'marginLeft' => 3000]);
+        } else {
+            $defaultHeader = $section->addHeader();
+        }
+
+        // En-tête : logo gauche + www.sgpme.ci droite
+        $headerTable = $defaultHeader->addTable(['borderSize' => 0, 'borderColor' => 'ffffff', 'cellMargin' => 0, 'width' => 100 * 50]);
+        $headerTable->addRow();
+        $logoCell = $headerTable->addCell(4500);
+        if (file_exists($logoPath)) {
+            $logoCell->addImage($logoPath, ['width' => 100, 'height' => 40, 'wrappingStyle' => 'inline']);
+        } else {
+            $logoCell->addText('SGPME', ['bold' => true, 'size' => 14]);
+        }
+        $headerTable->addCell(5500)->addText('www.sgpme.ci', ['bold' => true, 'size' => 13, 'color' => 'FF6600'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+
+        // Pied de page
+        $footer = $section->addFooter();
+        $footerText = 'Société d\'Etat, créée par Décret N° 2022-261 du 13 avril 2022, au Capital de 10 000 000 000 F CFA - Siège Social : Abidjan - Adjamé 220 Logements - Indénié en face de Fraternité Matin - Immeuble CGRAE, 4ème et 5ème étages, 09 BP 1634 Abidjan 09 Côte d\'Ivoire - Tel : (+225) 2720236020 – N° RCCM : I-ABJ-03-2022-B15-00060 – N° IDU : CI-2022-0036513 N – N° agrément en qualité d\'Etablissement Financier à caractère Bancaire : A 0264 G';
+        $footer->addText($footerText, ['size' => 7, 'color' => '444444'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
 
         // Styles
         $phpWord->addFontStyle('titleStyle', ['bold' => true, 'size' => 14]);
@@ -409,13 +447,8 @@ class SupervisorEvaluationController extends Controller
         $objectives = $userCampaign->objectives()->whereNotNull('score')->get();
 
         if ($objectives->count() > 0) {
-            // Calcul : somme de (score × poids / 100)
-            // Exemple : Objectif 1 (20%) : 75% → 75 × 20 / 100 = 15
-            //           Objectif 2 (30%) : 83% → 83 × 30 / 100 = 25
-            //           Note globale = 15 + 25 = 40%
-            $rating = $objectives->sum(function ($obj) {
-                return ($obj->score * $obj->weight) / 100;
-            });
+            // Calcul : somme directe des notes obtenues par objectif
+            $rating = $objectives->sum('score');
 
             $userCampaign->update(['rating' => round($rating, 2)]);
         }

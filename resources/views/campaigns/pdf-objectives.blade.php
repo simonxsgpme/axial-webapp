@@ -5,7 +5,20 @@
     <title>Rapport individuel de gestion de la performance {{ $year }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; font-size: 11px; color: #000; padding: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #000;
+            padding: 20px;
+            background-image: url('{{ public_path("assets/images/filigrane.png") }}');
+            background-repeat: no-repeat;
+            background-position: center center;
+            background-size: 50%;
+            background-attachment: fixed;
+        }
+        .doc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; padding-bottom: 12px; }
+        .doc-header img.logo { height: 55px; max-width: 180px; object-fit: contain; }
+        .doc-header .site-url { font-size: 13px; font-weight: bold; color: #FF6600; }
         .header { margin-bottom: 20px; }
         .header h1 { font-size: 14px; font-weight: bold; text-decoration: underline; margin-bottom: 15px; }
         .info-section { margin-bottom: 20px; font-size: 11px; line-height: 1.6; }
@@ -16,9 +29,19 @@
         table.objectives th { background-color: #fff; font-weight: bold; }
         table.objectives td { vertical-align: top; }
         .total-row { font-weight: bold; }
+        .doc-footer { margin-top: 40px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 8.5px; color: #444; line-height: 1.5; text-align: center; }
         @media print {
-            body { padding: 15px; }
+            body {
+                padding: 15px;
+                background-image: url('{{ public_path("assets/images/filigrane.png") }}');
+                background-repeat: no-repeat;
+                background-position: center center;
+                background-size: 50%;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
             .no-print { display: none; }
+            .doc-footer { position: fixed; bottom: 0; left: 0; right: 0; }
         }
     </style>
 </head>
@@ -27,6 +50,11 @@
         <button onclick="window.print()" style="padding: 10px 30px; background: #0d6efd; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
             Imprimer / Enregistrer en PDF
         </button>
+    </div>
+
+    <div class="doc-header">
+        <img src="{{ public_path('assets/images/logo.png') }}" class="logo" alt="Logo SGPME">
+        <span class="site-url">www.sgpme.ci</span>
     </div>
 
     <div class="header">
@@ -121,5 +149,9 @@
         </table>
     </div>
     @endif
+
+    <div class="doc-footer">
+        Société d'Etat, créée par Décret N° 2022-261 du 13 avril 2022, au Capital de 10 000 000 000 F CFA - Siège Social : Abidjan - Adjamé 220 Logements - Indénié en face de Fraternité Matin - Immeuble CGRAE, 4ème et 5ème étages, 09 BP 1634 Abidjan 09 Côte d'Ivoire - Tel : (+225) 2720236020 – N° RCCM : I-ABJ-03-2022-B15-00060 – N° IDU : CI-2022-0036513 N – N° agrément en qualité d'Etablissement Financier à caractère Bancaire : A 0264 G
+    </div>
 </body>
 </html>

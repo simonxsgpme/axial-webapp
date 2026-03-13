@@ -13,9 +13,14 @@
                 <span class="fw-bold fs-5">Objectifs de {{ $userCampaign->user->full_name }}</span>
                 <small class="text-muted ms-2">{{ $campaign->name }} ({{ $campaign->year }})</small>
             </div>
-            <button type="button" class="btn btn-primary btn-sm waves-effect waves-light" onclick="showAddForm()">
-                <i class="fi fi-rr-plus me-1"></i> Nouvel objectif
-            </button>
+            <div class="btn-group">
+                <button type="button" class="btn btn-primary btn-sm waves-effect waves-light" onclick="showAddForm()">
+                    <i class="fi fi-rr-plus me-1"></i> Nouvel objectif
+                </button>
+                <button type="button" class="btn btn-success btn-sm waves-effect waves-light" onclick="showImportModal()">
+                    <i class="fi fi-rr-upload me-1"></i> Importer
+                </button>
+            </div>
         </div>
 
         <div class="row g-3">
@@ -53,7 +58,7 @@
                                         <div>
                                             <h6 class="mb-1 fw-semibold">{{ $obj->title }}</h6>
                                             <div class="d-flex gap-2 align-items-center">
-                                                <span class="badge bg-primary-subtle text-primary">{{ $obj->category->name ?? '' }}</span>
+                                                {{-- <span class="badge bg-primary-subtle text-primary">{{ $obj->category->name ?? '' }}</span> --}}
                                                 @if($obj->weight > 0)
                                                 <small class="text-muted">Pondération: {{ $obj->weight }}%</small>
                                                 @endif
@@ -96,18 +101,18 @@
                             <form id="objectiveForm" onsubmit="submitObjective(event)">
                                 <input type="hidden" id="formObjectiveUuid" value="">
                                 <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label">Titre <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="formTitleInput" name="title" required>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
+                                    <div class="col-md-4 mb-3">
                                         <label class="form-label">Catégorie <span class="text-danger">*</span></label>
-                                        <select class="form-select" id="formCategory" name="objective_category_uuid" required>
+                                        <select class="form-select" id="formCategory" name="objective_category_uuid" required onchange="handleCategoryChange(this, 'formTitleInput', 'formTitleWrapper')">
                                             <option value="">Sélectionner...</option>
                                             @foreach($categories as $cat)
-                                            <option value="{{ $cat->uuid }}">{{ $cat->name }}</option>
+                                            <option value="{{ $cat->uuid }}" data-name="{{ $cat->name }}">{{ $cat->name }}</option>
                                             @endforeach
                                         </select>
+                                    </div>
+                                    <div class="col-md-5 mb-3" id="formTitleWrapper">
+                                        <label class="form-label">Intitulé Objectif <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="formTitleInput" name="title" required>
                                     </div>
                                     <div class="col-md-3 mb-3">
                                         <label class="form-label">Pondération (%)</label>
@@ -157,6 +162,31 @@
         });
     }
 
+    const COMPORTEMENTAL_OPTIONS = ['Responsabilité', 'Intégrité', 'Engagement'];
+
+    function handleCategoryChange(selectEl, titleInputId, titleWrapperId, currentValue) {
+        let wrapper = document.getElementById(titleWrapperId);
+        let selectedOption = selectEl.options[selectEl.selectedIndex];
+        let catName = selectedOption ? (selectedOption.getAttribute('data-name') || '').toLowerCase() : '';
+        let isComportemental = catName.includes('comportemental');
+        let existingInput = document.getElementById(titleInputId);
+        let existingSelect = document.getElementById(titleInputId + '_select');
+        if (isComportemental) {
+            if (existingInput) { existingInput.style.display = 'none'; existingInput.removeAttribute('required'); }
+            if (!existingSelect) {
+                let sel = document.createElement('select');
+                sel.className = 'form-select'; sel.id = titleInputId + '_select'; sel.name = 'title'; sel.required = true;
+                COMPORTEMENTAL_OPTIONS.forEach(opt => { let o = document.createElement('option'); o.value = opt; o.textContent = opt; sel.appendChild(o); });
+                wrapper.appendChild(sel);
+            } else { existingSelect.style.display = ''; existingSelect.required = true; }
+            if (currentValue) { let s = document.getElementById(titleInputId + '_select'); if (s) s.value = currentValue; }
+        } else {
+            if (existingInput) { existingInput.style.display = ''; existingInput.required = true; }
+            if (existingSelect) { existingSelect.style.display = 'none'; existingSelect.required = false; }
+            if (currentValue && existingInput) existingInput.value = currentValue;
+        }
+    }
+
     function showAddForm() {
         document.getElementById('listPanel').style.display = 'none';
         document.getElementById('formPanel').style.display = '';
@@ -164,6 +194,7 @@
         document.getElementById('formSubmitLabel').textContent = 'Enregistrer';
         document.getElementById('formObjectiveUuid').value = '';
         document.getElementById('objectiveForm').reset();
+        handleCategoryChange(document.getElementById('formCategory'), 'formTitleInput', 'formTitleWrapper');
     }
 
     function showEditForm(uuid) {
@@ -174,16 +205,15 @@
         document.getElementById('formTitle').innerHTML = '<i class="fi fi-rr-pencil me-1"></i> Modifier l\'objectif';
         document.getElementById('formSubmitLabel').textContent = 'Mettre à jour';
         document.getElementById('formObjectiveUuid').value = uuid;
-        // Load data via AJAX
         loader();
         $.get('/objectives/' + uuid, function(data) {
             loader('hide');
             if (data.success) {
                 let obj = data.objective;
-                document.getElementById('formTitleInput').value = obj.title;
                 document.getElementById('formCategory').value = obj.objective_category_uuid;
                 document.getElementById('formWeight').value = obj.weight || 0;
                 document.getElementById('formDescription').value = obj.description || '';
+                handleCategoryChange(document.getElementById('formCategory'), 'formTitleInput', 'formTitleWrapper', obj.title);
             }
         }).fail(function() { loader('hide'); });
     }
@@ -210,6 +240,52 @@
                 else { SendError(data.message); }
             },
             error: function(data) { loader('hide'); SendError(data.responseJSON?.message ?? 'Erreur'); }
+        });
+    }
+
+    function showImportModal() {
+        Swal.fire({
+            title: 'Importer des objectifs',
+            html: `
+                <div class="text-start">
+                    <p class="mb-3">Téléchargez le modèle Excel, remplissez-le, puis importez-le.</p>
+                    <div class="mb-3">
+                        <a href="{{ route('objectives.import.template') }}" class="btn btn-outline-primary btn-sm w-100">
+                            <i class="fi fi-rr-download me-1"></i> Télécharger le modèle Excel
+                        </a>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Fichier à importer</label>
+                        <input type="file" class="form-control" id="importFileParticipant" accept=".xlsx,.xls,.csv">
+                        <small class="text-muted">Formats acceptés : Excel (.xlsx, .xls) ou CSV</small>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true, confirmButtonText: 'Importer', cancelButtonText: 'Annuler',
+            showLoaderOnConfirm: true,
+            preConfirm: () => {
+                const f = document.getElementById('importFileParticipant');
+                if (!f.files.length) { Swal.showValidationMessage('Veuillez sélectionner un fichier'); return false; }
+                return f.files[0];
+            },
+            allowOutsideClick: () => !Swal.isLoading()
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                const formData = new FormData();
+                formData.append('file', result.value);
+                loader();
+                $.ajax({
+                    url: '{{ route('objectives.import.participant', $userCampaign->uuid) }}', type: 'POST', data: formData,
+                    processData: false, contentType: false,
+                    headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
+                    success: function(data) {
+                        loader('hide');
+                        if (data.success) { Swal.fire({ icon: 'success', title: 'Succès', text: data.message, showConfirmButton: false, timer: 2000 }); setTimeout(() => location.reload(), 2000); }
+                        else { SendError(data.message); }
+                    },
+                    error: function(data) { loader('hide'); SendError(data.responseJSON?.message ?? 'Erreur lors de l\'import'); }
+                });
+            }
         });
     }
 

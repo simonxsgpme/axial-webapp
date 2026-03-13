@@ -28,13 +28,13 @@ class UserController extends Controller
     {
         $request->validate([
             'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email',
-            'phone' => 'nullable|string|max:50',
-            'position' => 'nullable|string|max:255',
-            'role_uuid' => 'nullable|exists:roles,uuid',
-            'entity_uuid' => 'nullable|exists:entities,uuid',
-            'is_active' => 'nullable|boolean',
+            'last_name'  => 'required|string|max:255',
+            'email'      => 'required|email|max:255',
+            'phone'      => 'nullable|string|max:50',
+            'position'   => 'nullable|string|max:255',
+            'role_uuid'  => 'nullable|exists:roles,uuid',
+            'entity_uuid'=> 'nullable|exists:entities,uuid',
+            'is_active'  => 'nullable|boolean',
         ]);
 
         User::create([
@@ -72,26 +72,26 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->uuid . ',uuid',
-            'phone' => 'nullable|string|max:50',
-            'position' => 'nullable|string|max:255',
-            'role_uuid' => 'nullable|exists:roles,uuid',
+            'first_name'  => 'required|string|max:255',
+            'last_name'   => 'required|string|max:255',
+            'email'       => 'required|email|max:255',
+            'phone'       => 'nullable|string|max:50',
+            'position'    => 'nullable|string|max:255',
+            'role_uuid'   => 'nullable|exists:roles,uuid',
             'entity_uuid' => 'nullable|exists:entities,uuid',
-            'is_active' => 'nullable|boolean',
+            'is_active'   => 'nullable|boolean',
         ]);
 
         $user->update([
-            'first_name' => $request->first_name,
-            'last_name' => $request->last_name,
-            'full_name' => $request->last_name . ' ' . $request->first_name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'position' => $request->position,
-            'role_uuid' => $request->role_uuid,
+            'first_name'  => $request->first_name,
+            'last_name'   => $request->last_name,
+            'full_name'   => $request->last_name . ' ' . $request->first_name,
+            'email'       => $request->email,
+            'phone'       => $request->phone,
+            'position'    => $request->position,
+            'role_uuid'   => $request->role_uuid,
             'entity_uuid' => $request->entity_uuid,
-            'is_active' => $request->has('is_active') ? true : false,
+            'is_active'   => $request->has('is_active') ? true : false,
         ]);
 
         return response()->json([

@@ -6,11 +6,9 @@ use App\Models\Campaign;
 use App\Models\Entity;
 use App\Models\Objective;
 use App\Models\ObjectiveCategory;
-use App\Models\ObjectiveHistory;
 use App\Models\User;
 use App\Models\UserCampaign;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class CampaignController extends Controller
 {
@@ -181,27 +179,12 @@ class CampaignController extends Controller
             }
         }
 
-        // Vérifier que tous les participants ont terminé la phase mi-parcours
+        // Vérifier qu'il y a au moins un participant avant de terminer la phase mi-parcours
         if ($request->action === 'complete-midterm') {
-            $totalParticipants = $campaign->userCampaigns()->count();
-            $completedParticipants = $campaign->userCampaigns()->whereNotNull('midterm_file')->count();
-
-            if ($totalParticipants === 0) {
+            if ($campaign->userCampaigns()->count() === 0) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Aucun participant dans cette campagne.',
-                ], 422);
-            }
-
-            if ($completedParticipants < $totalParticipants) {
-                $remaining = $totalParticipants - $completedParticipants;
-                
-                // Pas de forçage pour la phase mi-parcours
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Impossible de terminer la phase mi-parcours : ' . $remaining . ' participant(s) sur ' . $totalParticipants . ' n\'ont pas encore importé leur fiche mi-parcours.',
-                    'not_completed_count' => $remaining,
-                    'total_count' => $totalParticipants,
                 ], 422);
             }
         }
@@ -389,9 +372,11 @@ class CampaignController extends Controller
             'title' => $request->title,
             'description' => $request->description,
             'weight' => $request->weight ?? 0,
+            'status' => 'validated',
         ]);
 
         $objective->load('category');
+        $this->checkAndCompleteObjectives($userCampaign);
 
         return response()->json([
             'success' => true,
@@ -414,15 +399,25 @@ class CampaignController extends Controller
             'title' => $request->title,
             'description' => $request->description,
             'weight' => $request->weight ?? 0,
+            'status' => 'validated',
         ]);
 
         $objective->load('category');
+        $this->checkAndCompleteObjectives($userCampaign);
 
         return response()->json([
             'success' => true,
             'message' => 'Objectif modifié avec succès.',
             'objective' => $objective,
         ]);
+    }
+
+    private function checkAndCompleteObjectives(UserCampaign $userCampaign): void
+    {
+        $totalWeight = $userCampaign->objectives()->where('status', 'validated')->sum('weight');
+        if ($totalWeight >= 100) {
+            $userCampaign->update(['objective_status' => 'completed']);
+        }
     }
 
     public function destroyParticipantObjective(Campaign $campaign, UserCampaign $userCampaign, Objective $objective)
@@ -457,7 +452,45 @@ class CampaignController extends Controller
         $objectivesByCategory = $userCampaign->objectives->groupBy('objective_category_uuid');
 
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
-        $section = $phpWord->addSection();
+
+        $sectionStyle = [
+            'marginTop'    => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2.5),
+            'marginBottom' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2.5),
+            'marginLeft'   => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2),
+            'marginRight'  => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(2),
+            'headerHeight' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(1.5),
+            'footerHeight' => \PhpOffice\PhpWord\Shared\Converter::cmToTwip(1.5),
+        ];
+        $section = $phpWord->addSection($sectionStyle);
+
+        // Filigrane
+        $logoPath    = public_path('assets/images/logo.png');
+        $filigramePath = public_path('assets/images/filigrane.png');
+
+        if (file_exists($filigramePath)) {
+            $header = $section->addHeader(\PhpOffice\PhpWord\Element\Header::FIRST);
+            $header->addWatermark($filigramePath, ['marginTop' => 3000, 'marginLeft' => 3000]);
+            $defaultHeader = $section->addHeader();
+            $defaultHeader->addWatermark($filigramePath, ['marginTop' => 3000, 'marginLeft' => 3000]);
+        } else {
+            $defaultHeader = $section->addHeader();
+        }
+
+        // En-tête : logo gauche + www.sgpme.ci droite
+        $headerTable = $defaultHeader->addTable(['borderSize' => 0, 'borderColor' => 'ffffff', 'cellMargin' => 0, 'width' => 100 * 50]);
+        $headerTable->addRow();
+        $logoCell = $headerTable->addCell(4500);
+        if (file_exists($logoPath)) {
+            $logoCell->addImage($logoPath, ['width' => 100, 'height' => 40, 'wrappingStyle' => 'inline']);
+        } else {
+            $logoCell->addText('SGPME', ['bold' => true, 'size' => 14]);
+        }
+        $headerTable->addCell(5500)->addText('www.sgpme.ci', ['bold' => true, 'size' => 13, 'color' => 'FF6600'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::RIGHT]);
+
+        // Pied de page
+        $footer = $section->addFooter();
+        $footerText = 'Société d\'Etat, créée par Décret N° 2022-261 du 13 avril 2022, au Capital de 10 000 000 000 F CFA - Siège Social : Abidjan - Adjamé 220 Logements - Indénié en face de Fraternité Matin - Immeuble CGRAE, 4ème et 5ème étages, 09 BP 1634 Abidjan 09 Côte d\'Ivoire - Tel : (+225) 2720236020 – N° RCCM : I-ABJ-03-2022-B15-00060 – N° IDU : CI-2022-0036513 N – N° agrément en qualité d\'Etablissement Financier à caractère Bancaire : A 0264 G';
+        $footer->addText($footerText, ['size' => 7, 'color' => '444444'], ['alignment' => \PhpOffice\PhpWord\SimpleType\Jc::CENTER]);
 
         // Styles
         $phpWord->addFontStyle('titleStyle', ['bold' => true, 'size' => 14]);

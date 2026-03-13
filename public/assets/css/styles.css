@@ -34,7 +34,7 @@
   --bs-gray-700: #495057;
   --bs-gray-800: #343a40;
   --bs-gray-900: #212529;
-  --bs-primary: #316AFF;
+  --bs-primary: #068925; /*#316AFF;*/
   --bs-secondary: #FF8110;
   --bs-success: #22B07E;
   --bs-info: #02B4FA;
@@ -9006,7 +9006,7 @@ textarea.form-control-lg {
 
 .text-muted {
   --bs-text-opacity: 1;
-  color: var(--bs-secondary-color) !important;
+  color: var(--bs-gray-700) !important;
 }
 
 .text-black-50 {
@@ -13808,7 +13808,7 @@ textarea.form-control-lg {
   --bs-link-color-rgb: 49, 106, 255;
   --bs-link-hover-color: #2a5ad9;
   --bs-link-hover-color-rgb: 42, 90, 217;
-  --bs-primary: #316AFF;
+  --bs-primary: #068925; /*#316AFF;*/
   --bs-secondary: #FF8110;
   --bs-light: #ECF2FD;
   --bs-primary-rgb: 49, 106, 255;
@@ -14022,7 +14022,8 @@ strong {
   position: fixed;
   top: 0;
   z-index: 9;
-  background-color: var(--app-sidebar-bg);
+  /*background-color: var(--app-sidebar-bg);*/
+  background: linear-gradient(to bottom, #d86633, #df8534);
   transition-duration: 0.3s;
   transition-property: width, left;
   box-shadow: 0px 30px 30px 10px rgba(0, 0, 0, 0.02);
@@ -14127,7 +14128,8 @@ strong {
 
 .app-header {
   position: fixed;
-  background-color: var(--app-header-bg);
+  /* background-color: var(--app-header-bg); */
+  background: linear-gradient(to bottom, #068925, #009a24);
   z-index: 9;
   height: var(--app-header-height);
   top: 0;
@@ -14197,7 +14199,7 @@ strong {
   border-radius: 8px;
   font-size: 14px;
   padding: 10px 15px;
-  color: var(--bs-heading-color);
+  color: #FFF;
   transition: 0.2s all linear;
 }
 .app-navbar .menu-item .menu-link > i {
@@ -14206,13 +14208,13 @@ strong {
   vertical-align: text-top;
   line-height: 1;
   margin-right: 8px;
-  color: var(--bs-body-color);
+  /*color: var(--bs-body-color);*/
 }
 .app-navbar .menubar {
   padding-left: 0;
 }
 .app-navbar .menubar .menu-heading {
-  color: var(--bs-primary);
+  color: var(--bs-gray-500);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -14302,7 +14304,7 @@ strong {
   width: 18px;
   height: 2px;
   display: block;
-  background-color: var(--bs-body-color);
+  background-color: var(--bs-light);
   border-radius: 12px;
   margin: 4px auto;
   transition: 0.1s all linear;
@@ -14743,7 +14745,7 @@ strong {
   background-size: cover;
   background-position: center;
   display: flex;
-  align-items: center;
+  /*align-items: center;*/
   justify-content: center;
   padding: 50px;
 }

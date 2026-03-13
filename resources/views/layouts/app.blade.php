@@ -19,6 +19,8 @@
 
     @yield('styles')
 
+    @stack('styles')
+
 </head>
 
 <body>
@@ -36,7 +38,7 @@
           <div class="dropdown text-end ms-sm-3 ms-2 ms-lg-4">
             <a href="#" class="d-flex align-items-center py-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="true">
               <div class="text-end me-2 d-none d-lg-inline-block">
-                <div class="fw-bold text-dark">{{ Auth::user()->full_name }}</div>
+                <div class="fw-bold text-white">{{ Auth::user()->full_name }}</div>
                 <small class="text-body d-block lh-sm">
                   <i class="fi fi-rr-angle-down text-3xs me-1"></i> {{ Auth::user()->role->name }}
                 </small>
@@ -45,7 +47,7 @@
                 <img src="/storage/{{ Auth::user()->avatar }}" alt="user avatar">
               </div>
             </a>
-            <ul class="dropdown-menu dropdown-menu-end w-225px mt-1">
+            <ul class="dropdown-menu dropdown-menu-end mt-1">
               <li class="d-flex align-items-center p-2">
                 <div class="avatar avatar-sm rounded-circle">
                   <img src="/storage/{{ Auth::user()->avatar }}" alt="user avatar">
@@ -186,7 +188,7 @@
       <div class="container">
         <div class="row g-2">
           <div class="col-lg-6 col-md-7 text-center text-md-start">
-            <p class="mb-0">© <span class="currentYear">{{ date('Y') }}</span> AXIAL. powered by <a href="javascript:void(0);">SGPME IT</a>.</p>
+            <p class="mb-0">© <span class="currentYear">{{ date('Y') }}</span> AXIAL. powered with <i class="fa fa-heart text-danger"></i> by <a href="javascript:void(0);">SGPME SI</a>.</p>
           </div>
         </div>
       </div>

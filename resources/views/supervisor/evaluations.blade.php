@@ -212,7 +212,7 @@
     let currentUcUuid = null;
     let currentUcData = null;
 
-    function loadSubordinate(ucUuid) {
+    function loadSubordinate(ucUuid, activeTabHref) {
         currentUcUuid = ucUuid;
         document.querySelectorAll('.subordinate-card').forEach(c => c.classList.remove('active'));
         let card = document.querySelector('.subordinate-card[data-uuid="' + ucUuid + '"]');
@@ -226,7 +226,7 @@
                 loader('hide');
                 if (data.success) {
                     currentUcData = data.userCampaign;
-                    renderSubordinateDetail(data.userCampaign);
+                    renderSubordinateDetail(data.userCampaign, activeTabHref);
                 }
             },
             error: function(data) {
@@ -236,7 +236,7 @@
         });
     }
 
-    function renderSubordinateDetail(uc) {
+    function renderSubordinateDetail(uc, activeTabHref) {
         document.getElementById('emptyDetail').style.display = 'none';
         document.getElementById('subordinateDetail').style.display = 'block';
 
@@ -263,7 +263,7 @@
         document.getElementById('btnSubmitEval').style.display = canSubmit ? '' : 'none';
 
         updateRatingDisplay(uc.rating);
-        renderCategoryTabs(uc.objectives || [], uc.evaluation_status);
+        renderCategoryTabs(uc.objectives || [], uc.evaluation_status, activeTabHref);
         renderEvalTimeline(uc.evaluation_decisions || []);
     }
 
@@ -324,7 +324,7 @@
         }
     }
 
-    function renderCategoryTabs(objectives, evalStatus) {
+    function renderCategoryTabs(objectives, evalStatus, activeTabHref) {
         let campaignStatus = '{{ $campaign->status ?? "" }}';
         let isMidterm = campaignStatus === 'midterm_in_progress';
 
@@ -399,7 +399,6 @@
 
         // Insérer les onglets et le contenu
         let categoryTabsEl = document.getElementById('categoryTabs');
-        let historyTab = categoryTabsEl.querySelector('li:last-child');
         categoryTabsEl.innerHTML = tabsHtml;
 
         let contentEl = document.getElementById('categoryTabsContent');
@@ -407,6 +406,18 @@
         contentEl.innerHTML = contentHtml;
         if (historyContent) {
             contentEl.appendChild(historyContent);
+        }
+
+        // Restaurer l'onglet actif si fourni et s'il existe encore
+        if (activeTabHref) {
+            let targetTab = categoryTabsEl.querySelector('a[href="' + activeTabHref + '"]');
+            if (targetTab) {
+                categoryTabsEl.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                contentEl.querySelectorAll('.tab-pane').forEach(p => { p.classList.remove('show', 'active'); });
+                targetTab.classList.add('active');
+                let pane = contentEl.querySelector(activeTabHref);
+                if (pane) pane.classList.add('show', 'active');
+            }
         }
     }
 
@@ -475,11 +486,11 @@
         document.getElementById('ratingPercent').textContent = ratingVal.toFixed(1) + '/100';
 
         let level, color;
-        if (ratingVal < 20) { level = 'Insuffisant'; color = 'danger'; }
-        else if (ratingVal < 40) { level = 'Passable'; color = 'warning'; }
-        else if (ratingVal < 60) { level = 'Satisfaisant'; color = 'info'; }
-        else if (ratingVal < 80) { level = 'Bien'; color = 'primary'; }
-        else { level = 'Excellent'; color = 'success'; }
+        if (ratingVal > 100)      { level = 'Au-delà des attentes';              color = 'success'; }
+        else if (ratingVal == 100) { level = 'Répond à toutes les attentes';     color = 'primary'; }
+        else if (ratingVal >= 80)  { level = 'Répond à la plupart des attentes'; color = 'info'; }
+        else if (ratingVal >= 50)  { level = 'Répond à quelques attentes';       color = 'warning'; }
+        else                       { level = 'Ne répond pas aux attentes';        color = 'danger'; }
 
         document.getElementById('ratingLevel').textContent = level;
         document.getElementById('ratingLevel').className = 'fw-semibold text-' + color;
@@ -578,6 +589,9 @@
             return;
         }
 
+        // Mémoriser l'onglet actif avant rechargement
+        let activeTabHref = document.querySelector('#categoryTabs .nav-link.active')?.getAttribute('href');
+
         loader();
         $.ajax({
             url: '/supervisor/evaluations/' + objUuid + '/score',
@@ -589,7 +603,7 @@
                 if (data.success) {
                     Swal.fire({ icon: 'success', title: 'Note enregistrée', showConfirmButton: false, timer: 1000 });
                     updateRatingDisplay(data.rating);
-                    loadSubordinate(currentUcUuid);
+                    loadSubordinate(currentUcUuid, activeTabHref);
                 } else { SendError(data.message); }
             },
             error: function(data) { loader('hide'); SendError(data.responseJSON?.message ?? 'Une erreur est survenue'); }

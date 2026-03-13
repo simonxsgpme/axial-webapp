@@ -21,7 +21,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('login') }}" class="loginForm">
+    <form method="POST" action="{{ route('login.send-otp') }}" class="loginForm">
         @csrf
 
         <!-- Email -->
@@ -32,39 +32,16 @@
                     id="email"
                     name="email"
                     value="{{ old('email') }}"
-                    placeholder="exemp@sgpme.ci"
+                    placeholder="exemple@sgpme.ci"
                     required
                     autofocus>
-        </div>
-
-        <!-- Password -->
-        <div class="mb-3">
-            <label for="password" class="form-label">Mot de passe</label>
-            <div class="input-group">
-                <input type="password"
-                        class="form-control @error('password') is-invalid @enderror"
-                        id="password"
-                        name="password"
-                        placeholder="********"
-                        required>
-                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
-                    <i class="fi fi-rs-eye"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Remember Me -->
-        <div class="mb-3 d-flex justify-content-between align-items-center">
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="remember" id="remember" {{ old('remember') ? 'checked' : '' }}>
-                <label class="form-check-label" for="remember">Se souvenir de moi</label>
-            </div>
+            <div class="form-text">Un code de connexion sera envoyé à cette adresse</div>
         </div>
 
         <!-- Submit -->
         <div class="d-grid">
             <button type="submit" class="btn btn-success">
-                Me connecter
+                Recevoir le code
             </button>
         </div>
     </form>
@@ -72,20 +49,3 @@
 @endsection
 
 
-@push('scripts')
-<script>
-    document.getElementById('togglePassword').addEventListener('click', function () {
-        const passwordInput = document.getElementById('password');
-        const icon = this.querySelector('i');
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            icon.classList.remove('fi-rs-eye');
-            icon.classList.add('fi-rs-eye-off');
-        } else {
-            passwordInput.type = 'password';
-            icon.classList.remove('fi-rs-eye-off');
-            icon.classList.add('fi-rs-eye');
-        }
-    });
-</script>
-@endpush

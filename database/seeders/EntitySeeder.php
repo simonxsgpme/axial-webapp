@@ -9,27 +9,31 @@ class EntitySeeder extends Seeder
 {
     public function run(): void
     {
-        // Créer d'abord les entités parentes (Directions principales)
-        $parentEntities = [
-            ['name' => 'Direction Générale', 'acronym' => 'DG', 'category' => 'direction', 'parent_uuid' => null],
-            ['name' => 'Direction Administration et Ressources', 'acronym' => 'DAR', 'category' => 'direction', 'parent_uuid' => null],
-            ['name' => 'Direction des Risques', 'acronym' => 'DR', 'category' => 'direction', 'parent_uuid' => null],
-            ['name' => 'Direction Commerciale', 'acronym' => 'DCOM', 'category' => 'direction', 'parent_uuid' => null],
-            ['name' => 'Direction Octrois et Engagements', 'acronym' => 'DOE', 'category' => 'direction', 'parent_uuid' => null],
+        // Créer d'abord les entités parentes (Directions principales) extraites du CSV
+        $dgEntit = ['name' => 'Direction Générale', 'acronym' => 'DG', 'category' => 'direction', 'parent_uuid' => null];
+
+        $dg = Entity::create($dgEntit);
+
+        $directions = [
+            ['name' => 'Direction Administration et Ressources', 'acronym' => 'DAR', 'category' => 'direction', 'parent_uuid' => $dg?->uuid],
+            ['name' => 'Direction des Risques', 'acronym' => 'DR', 'category' => 'direction', 'parent_uuid' => $dg?->uuid],
+            ['name' => 'Direction Commerciale', 'acronym' => 'DC', 'category' => 'direction', 'parent_uuid' => $dg?->uuid],
+            ['name' => 'Direction Octrois et Engagements', 'acronym' => 'DOE', 'category' => 'direction', 'parent_uuid' => $dg?->uuid],
         ];
 
-        foreach ($parentEntities as $entityData) {
+        foreach ($directions as $direction) {
             Entity::firstOrCreate(
-                ['name' => $entityData['name']], 
-                $entityData
+                ['name' => $direction['name']], 
+                $direction
             );
         }
 
-        // Créer ensuite les entités enfants (Services/Départements)
+        // Récupérer les entités parentes pour créer les relations
         $dar = Entity::where('name', 'Direction Administration et Ressources')->first();
         $dr = Entity::where('name', 'Direction des Risques')->first();
         $dg = Entity::where('name', 'Direction Générale')->first();
 
+        // Créer les entités enfants (Services/Départements) extraites du CSV
         $childEntities = [
             // Sous-entités de Direction Administration et Ressources
             ['name' => 'Moyens Généraux', 'acronym' => 'MG', 'category' => 'service', 'parent_uuid' => $dar?->uuid],
@@ -43,8 +47,8 @@ class EntitySeeder extends Seeder
             ['name' => 'Conformité', 'acronym' => 'CONF', 'category' => 'service', 'parent_uuid' => $dr?->uuid],
             
             // Sous-entités de Direction Générale
-            ['name' => 'Juridique & Contentieux', 'acronym' => 'JC', 'category' => 'departement', 'parent_uuid' => $dg?->uuid],
-            ['name' => 'Audit Interne', 'acronym' => 'AI', 'category' => 'departement', 'parent_uuid' => $dg?->uuid],
+            ['name' => 'Juridique & Contentieux', 'acronym' => 'JC', 'category' => 'service', 'parent_uuid' => $dg?->uuid],
+            ['name' => 'Audit Interne', 'acronym' => 'AI', 'category' => 'service', 'parent_uuid' => $dg?->uuid],
         ];
 
         foreach ($childEntities as $entityData) {

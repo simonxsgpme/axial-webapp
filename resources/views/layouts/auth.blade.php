@@ -27,7 +27,7 @@
     <div class="auth-frame-wrapper">
       <div class="row g-0 h-100">
         <div class="col-lg-6">
-          <div class="auth-frame" style="background-image: url({{ asset('assets/images/auth/auth-frame.webp') }});">
+          <div class="auth-frame" style="background-image: url({{ asset('assets/images/auth/auth-frame.jpeg') }});">
             <div class="clearfix">
               <div class="auth-content">
                 <h1 class="display-6 text-white fw-bold">AXIAL by SGPME</h1>

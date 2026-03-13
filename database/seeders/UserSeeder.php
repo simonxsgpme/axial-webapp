@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        $adminRole = Role::where('slug', 'administrateur')->first();
+        /*$adminRole = Role::where('slug', 'administrateur')->first();
         $managerRole = Role::where('slug', 'manager')->first();
         $employeRole = Role::where('slug', 'employe')->first();
 
@@ -161,6 +161,6 @@ class UserSeeder extends Seeder
                     $user->update(['supervisor_uuid' => $supervisor->uuid]);
                 }
             }
-        }
+        }*/
     }
 }
