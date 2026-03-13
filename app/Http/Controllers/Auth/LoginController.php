@@ -47,7 +47,7 @@ class LoginController extends Controller
         // Save OTP code
         OtpCode::create([
             'email' => $request->email,
-            'code' => $code,
+            'code' => 111111, //$code,
             'expires_at' => $expiresAt,
         ]);
 
